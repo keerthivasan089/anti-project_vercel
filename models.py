@@ -10,6 +10,9 @@ REAL_TIME_LOCKS = {}
 
 def get_db_connection():
     try:
+        if not Config.DATABASE_URL:
+            print("❌ DATABASE_URL not set")
+            return None
         connection = psycopg2.connect(Config.DATABASE_URL)
         return connection
     except psycopg2.Error as err:
