@@ -1,5 +1,5 @@
 import psycopg2
-from config import Config
+from api.config import Config
 
 def init_database():
     print("Connecting to PostgreSQL...")

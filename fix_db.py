@@ -1,4 +1,4 @@
-from models import get_db_connection
+from api.models import get_db_connection
 
 def apply_schema():
     conn = get_db_connection()
