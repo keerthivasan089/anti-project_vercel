@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Ride - Driver Portal</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-green: #27ae60;
+            --deep-green: #1e8449;
+            --accent-green: #2ecc71;
+            --bg-light: #f0f7f4;
+            --text-dark: #1a202c;
+            --glass-hollow: rgba(255, 255, 255, 0.65); 
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            overflow: hidden; 
+            margin: 0;
+        }
+
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; 
+            pointer-events: none;
+            background: radial-gradient(circle at center, #ffffff 0%, #e8f5e9 100%);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 45px 40px;
+            background-color: var(--glass-hollow);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 32px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 20px 50px rgba(39, 174, 96, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            text-align: center;
+            position: relative; 
+            z-index: 999; 
+        }
+
+        .logo-box {
+            width: 68px;
+            height: 68px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, var(--accent-green), var(--primary-green));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            color: #ffffff;
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        h1 { font-size: 28px; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; letter-spacing: -1px; }
+        .subtitle { font-size: 14px; color: #4a5568; margin-bottom: 35px; font-weight: 600; }
+
+        form { display: flex; flex-direction: column; gap: 20px; text-align: left; }
+        
+        .input-group label { 
+            display: block; 
+            font-size: 11px; 
+            font-weight: 800; 
+            color: var(--primary-green); 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            margin-left: 4px;
+        }
+        
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+        .input-wrapper i { position: absolute; left: 16px; font-size: 20px; color: var(--primary-green); }
+        
+        .input-wrapper input, .input-wrapper select {
+            width: 100%;
+            padding: 15px 15px 15px 50px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 1.5px solid rgba(39, 174, 96, 0.1);
+            border-radius: 16px;
+            outline: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-dark);
+            transition: 0.3s;
+            appearance: none;
+        }
+
+        .input-wrapper input:focus, .input-wrapper select:focus { 
+            border-color: var(--primary-green); 
+            background-color: #fff; 
+            box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.1); 
+        }
+
+        .submit-btn {
+            width: 100%; padding: 16px;
+            background: var(--primary-green);
+            border: none; border-radius: 16px; color: #fff; font-weight: 700;
+            cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;
+            box-shadow: 0 4px 0 var(--deep-green);
+            transition: all 0.1s;
+            margin-top: 10px;
+        }
+
+        .submit-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--deep-green); }
+        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .footer-link { margin-top: 30px; font-size: 13px; color: #4a5568; font-weight: 600; }
+        .footer-link a { color: var(--primary-green); text-decoration: none; font-weight: 800; }
+
+        #login-error, #otp-error { color: var(--danger); font-size: 13px; margin-top: 15px; font-weight: 600; display: none; }
+        #login-success { color: var(--success); font-size: 13px; margin-top: 15px; font-weight: 600; display: none; }
+
+        .hidden { display: none !important; }
+
+        /* Custom Dropdown Arrow */
+        .input-wrapper::after {
+            content: '\ebad'; /* boxicon arrow down */
+            font-family: 'boxicons';
+            position: absolute;
+            right: 16px;
+            color: var(--primary-green);
+            pointer-events: none;
+        }
+        .input-wrapper.no-arrow::after { display: none; }
+    </style>
+</head>
+<body>
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="login-container" id="login-section">
+        <div class="logo-box"><i class='bx bxs-bus'></i></div>
+        <h1>Driver Log-In</h1>
+        <p class="subtitle">Broadcast Your Journey</p>
+
+        <form id="login-form">
+            <div class="input-group">
+                <label>Allocated Bus</label>
+                <div class="input-wrapper">
+                    <i class='bx bx-purchase-tag'></i>
+                    <select id="bus-number" required>
+                        <option value="" disabled selected>Choose a bus...</option>
+                        {% for bus in buses %}
+                        <option value="{{ bus.id }}">{{ bus.busnumber }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Mobile Number</label>
+                <div class="input-wrapper no-arrow">
+                    <i class='bx bx-phone'></i>
+                    <input type="tel" id="phone-number" placeholder="Enter 10-digit number" required>
+                </div>
+            </div>
+            
+            <div id="recaptcha-container" style="margin-top: 10px; display: flex; justify-content: center;"></div>
+            
+            <button type="button" class="submit-btn" id="send-otp-btn">Send Secure OTP <i class='bx bx-send'></i></button>
+            <div id="login-error"></div>
+            <div id="login-success"></div>
+        </form>
+        <div class="footer-link"><a href="/index"><i class='bx bx-home-alt'></i> Return to Home</a></div>
+    </div>
+
+    <div class="login-container hidden" id="otp-section">
+        <div class="logo-box"><i class='bx bxs-key'></i></div>
+        <h1>Verify Code</h1>
+        <p class="subtitle">Enter the 6-digit verification code</p>
+
+        <form id="otp-form">
+            <div class="input-group">
+                <label>One-Time Password</label>
+                <div class="input-wrapper no-arrow">
+                    <i class='bx bx-lock-open'></i>
+                    <input type="text" id="otp-code" placeholder="______" maxlength="6"
+                        style="text-align: center; letter-spacing: 0.5rem; font-size: 1.5rem;" required>
+                </div>
+            </div>
+            <button type="button" class="submit-btn" id="verify-otp-btn">Confirm Identity <i class='bx bx-check-shield'></i></button>
+            <div id="otp-error"></div>
+        </form>
+        <div class="footer-link">Wrong number? <a href="/driver">Restart Login</a></div>
+    </div>
+
+    <!-- FIREBASE INTEGRATION -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDhPizOF7jUd1HThAng22D9ei3drwyXew",
+            authDomain: "campustransit-95e75.firebaseapp.com",
+            projectId: "campustransit-95e75",
+            storageBucket: "campustransit-95e75.firebasestorage.app",
+            messagingSenderId: "844590462013",
+            appId: "1:844590462013:web:44c3a4f51589139d872654"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'normal',
+            'callback': (response) => { document.getElementById('send-otp-btn').disabled = false; },
+            'expired-callback': () => { document.getElementById('send-otp-btn').disabled = true; }
+        });
+        window.recaptchaVerifier.render();
+
+        window.sendOTP = function() {
+            const phoneInputRaw = document.getElementById("phone-number").value.trim();
+            const busIdInput = document.getElementById("bus-number").value;
+            const errorDiv = document.getElementById("login-error");
+            errorDiv.style.display = 'none';
+
+            if (!busIdInput || phoneInputRaw.length !== 10) {
+                errorDiv.innerText = "Please select a bus and enter a valid 10-digit number.";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            const phoneNumber = "+91" + phoneInputRaw;
+            document.getElementById('send-otp-btn').innerText = "Broadcasting...";
+            document.getElementById('send-otp-btn').disabled = true;
+
+            signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
+                .then((confirmationResult) => {
+                    window.confirmationResult = confirmationResult;
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('otp-section').classList.remove('hidden');
+                }).catch((error) => {
+                    errorDiv.innerText = "Error: " + error.message;
+                    errorDiv.style.display = 'block';
+                    document.getElementById('send-otp-btn').innerText = "Send Secure OTP";
+                    document.getElementById('send-otp-btn').disabled = false;
+                    if(window.recaptchaVerifier) window.recaptchaVerifier.render().then(wid => grecaptcha.reset(wid));
+                });
+        };
+
+        window.verifyOTP = function() {
+            const code = document.getElementById("otp-code").value.trim();
+            const errorDiv = document.getElementById("otp-error");
+            errorDiv.style.display = 'none';
+
+            if (code.length !== 6) {
+                errorDiv.innerText = "Please enter the 6-digit code.";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            document.getElementById('verify-otp-btn').innerText = "Verifying...";
+            document.getElementById('verify-otp-btn').disabled = true;
+
+            window.confirmationResult.confirm(code).then((result) => {
+                const busId = document.getElementById('bus-number').value.trim();
+                const driverPhone = document.getElementById('phone-number').value.trim();
+                fetch('/api/driver/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bus_id: busId, driver_phone: driverPhone })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) window.location.href = "/driver_dashboard";
+                    else throw new Error(data.message);
+                })
+                .catch(err => {
+                    errorDiv.innerText = err.message || "Server sync failed.";
+                    errorDiv.style.display = 'block';
+                    document.getElementById('verify-otp-btn').innerText = "Confirm Identity";
+                    document.getElementById('verify-otp-btn').disabled = false;
+                });
+            }).catch((error) => {
+                errorDiv.innerText = "Incorrect OTP code.";
+                errorDiv.style.display = 'block';
+                document.getElementById('verify-otp-btn').innerText = "Confirm Identity";
+                document.getElementById('verify-otp-btn').disabled = false;
+            });
+        };
+
+        document.getElementById('send-otp-btn').addEventListener('click', window.sendOTP);
+        document.getElementById('verify-otp-btn').addEventListener('click', window.verifyOTP);
+    </script>
+
+    <!-- ANTI-GRAVITY BACKGROUND SCRIPT -->
+    <script>
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let particlesArray = [];
+        const mouse = { x: null, y: null, radius: 180 };
+        const icons = ['🚌', '🚐', '⛽', '🚦', '🛣️', '🚧', '📍', '🗺️'];
+
+        window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
+
+        class Particle {
+            constructor() { this.init(); }
+            init() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 12 + 10;
+                this.speed = Math.random() * 2.5 + 1.2; // Match index speed
+                this.isVertical = Math.random() > 0.5;
+                this.direction = Math.random() > 0.5 ? 1 : -1;
+                this.icon = icons[Math.floor(Math.random() * icons.length)];
+                this.opacity = Math.random() * 0.4 + 0.1;
+            }
+            update() {
+                if (this.isVertical) this.y += this.speed * this.direction;
+                else this.x += this.speed * this.direction;
+
+                if (mouse.x !== null) {
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let distanceSquared = dx * dx + dy * dy;
+                    let radiusSquared = mouse.radius * mouse.radius;
+                    if (distanceSquared < radiusSquared) {
+                        let distance = Math.sqrt(distanceSquared);
+                        let force = (mouse.radius - distance) / mouse.radius;
+                        this.x -= (dx / distance) * force * 50;
+                        this.y -= (dy / distance) * force * 50;
+                    }
+                }
+                if (Math.random() < 0.004) this.isVertical = !this.isVertical;
+                if (this.x < -40) this.x = canvas.width + 40;
+                if (this.x > canvas.width + 40) this.x = -40;
+                if (this.y < -40) this.y = canvas.height + 40;
+                if (this.y > canvas.height + 40) this.y = -40;
+                this.draw();
+            }
+            draw() {
+                ctx.globalAlpha = this.opacity;
+                ctx.font = `${this.size}px Arial`;
+                ctx.fillText(this.icon, this.x, this.y);
+            }
+        }
+
+        function drawRoutes() {
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(39, 174, 96, 0.05)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=60) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
+            for(let i=0; i<canvas.height; i+=60) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); }
+            ctx.stroke();
+        }
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particlesArray = [];
+            // Optimization: Adjusted to 80
+            for (let i = 0; i < 80; i++) { particlesArray.push(new Particle()); }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawRoutes();
+            particlesArray.forEach(p => p.update());
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', init);
+        init();
+        animate();
+    </script>
+</body>
+</html>

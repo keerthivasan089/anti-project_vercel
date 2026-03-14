@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Ride - Driver Command</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-green: #27ae60;
+            --deep-green: #1e8449;
+            --accent-green: #2ecc71;
+            --bg-light: #f0f7f4;
+            --text-dark: #1a202c;
+            --glass-hollow: rgba(255, 255, 255, 0.7); 
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            overflow: hidden; 
+            margin: 0;
+        }
+
+        #bgCanvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1; pointer-events: none;
+            background: radial-gradient(circle at center, #ffffff 0%, #e8f5e9 100%);
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 480px;
+            padding: 50px 40px;
+            background-color: var(--glass-hollow);
+            backdrop-filter: blur(25px) saturate(160%);
+            border-radius: 32px;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.05), 0 20px 60px rgba(39, 174, 96, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            text-align: center;
+            position: relative;
+            z-index: 999;
+        }
+
+        .logo-box {
+            width: 72px; height: 72px; margin: 0 auto 25px;
+            background: linear-gradient(135deg, var(--accent-green), var(--primary-green));
+            border-radius: 22px; display: flex; align-items: center; justify-content: center;
+            font-size: 36px; color: #ffffff;
+            box-shadow: 0 10px 25px rgba(39, 174, 96, 0.3);
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(1); box-shadow: 0 10px 25px rgba(39, 174, 96, 0.3); }
+            50% { transform: scale(1.05); box-shadow: 0 15px 35px rgba(39, 174, 96, 0.5); }
+            100% { transform: scale(1); box-shadow: 0 10px 25px rgba(39, 174, 96, 0.3); }
+        }
+
+        h1 { font-size: 26px; font-weight: 800; color: var(--text-dark); margin-bottom: 8px; }
+        .subtitle { font-size: 14px; color: #4a5568; margin-bottom: 40px; font-weight: 600; opacity: 0.8; }
+
+        .status-box {
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(39, 174, 96, 0.1);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border-radius: 100px;
+            font-weight: 800;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+        }
+
+        .pulse-dot {
+            width: 10px; height: 10px; background: var(--success); border-radius: 50%;
+            position: relative;
+        }
+        .pulse-dot::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--success); border-radius: 50%; opacity: 0.4;
+            animation: status-ping 1.5s infinite ease-out;
+        }
+
+        @keyframes status-ping {
+            0% { transform: scale(1); opacity: 0.4; }
+            100% { transform: scale(3.5); opacity: 0; }
+        }
+
+        .coords { font-family: 'Monaco', 'Consolas', monospace; font-size: 15px; font-weight: 700; color: var(--primary-green); letter-spacing: 0.5px; }
+        .coord-label { font-size: 11px; font-weight: 800; color: #718096; text-transform: uppercase; margin-bottom: 5px; }
+
+        .btn-stop {
+            width: 100%; padding: 18px;
+            background: #fff; border: 2px solid var(--danger);
+            border-radius: 16px; color: var(--danger); font-weight: 800;
+            cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;
+            transition: 0.3s;
+        }
+        .btn-stop:hover { background: var(--danger); color: #fff; }
+        .btn-stop:active { transform: translateY(2px); }
+
+        .footer-nav { margin-top: 35px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 25px; display: flex; justify-content: center; gap: 20px; }
+        .footer-nav a { text-decoration: none; font-size: 13px; font-weight: 700; color: #718096; transition: 0.3s; }
+        .footer-nav a:hover { color: var(--primary-green); }
+    </style>
+</head>
+<body>
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="dashboard-container">
+        <div class="logo-box"><i class='bx bx-broadcast'></i></div>
+        <h1>Broadcast Live</h1>
+        <p class="subtitle">CampusTransit GPS Terminal</p>
+
+        <div class="status-box">
+            <div class="status-badge">
+                <div class="pulse-dot"></div>
+                Live Transmission Active
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <p class="coord-label">Session Identity</p>
+                <p style="font-weight: 700; color: var(--text-dark);">Authorized Fleet Pilot</p>
+            </div>
+
+            <div>
+                <p class="coord-label">Current Geo-Coordinates</p>
+                <div class="coords" id="lat-long-display">Locking onto Satellites...</div>
+            </div>
+        </div>
+
+        <button onclick="window.location.href='/driver/logout'" class="btn-stop">
+            Terminate Session <i class='bx bx-power-off'></i>
+        </button>
+
+        <div class="footer-nav">
+            <a href="/"><i class='bx bx-map-pin'></i> Global Map</a>
+            <a href="/driver"><i class='bx bx-user-circle'></i> Profile</a>
+        </div>
+    </div>
+
+    <script src="/static/js/driver_dashboard.js"></script>
+    <script>
+        // BACKGROUND PARTICLES
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let particlesArray = [];
+        const mouse = { x: null, y: null, radius: 200 };
+        const icons = ['📡', '🛰️', '🗺️', '📍', '📶', '🚀'];
+
+        window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
+
+        class Particle {
+            constructor() { this.init(); }
+            init() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 15 + 10;
+                this.speed = Math.random() * 0.4 + 0.1;
+                this.icon = icons[Math.floor(Math.random() * icons.length)];
+                this.opacity = Math.random() * 0.3 + 0.1;
+            }
+            update() {
+                this.y -= this.speed;
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < mouse.radius) {
+                    let force = (mouse.radius - distance) / mouse.radius;
+                    this.x -= (dx / distance) * force * 8;
+                    this.y -= (dy / distance) * force * 8;
+                }
+                if (this.y < -30) this.y = canvas.height + 30;
+                this.draw();
+            }
+            draw() {
+                ctx.globalAlpha = this.opacity;
+                ctx.font = `${this.size}px Arial`;
+                ctx.fillText(this.icon, this.x, this.y);
+            }
+        }
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particlesArray = [];
+            for (let i = 0; i < 60; i++) { particlesArray.push(new Particle()); }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particlesArray.forEach(p => p.update());
+            requestAnimationFrame(animate);
+        }
+        window.addEventListener('resize', init);
+        init(); animate();
+    </script>
+</body>
+</html>

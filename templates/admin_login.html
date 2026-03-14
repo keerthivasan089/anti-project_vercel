@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Ride - Admin Secure Portal</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-green: #27ae60;
+            --deep-green: #1e8449;
+            --accent-green: #2ecc71;
+            --bg-light: #f0f7f4;
+            --text-dark: #1a202c;
+            --glass-hollow: rgba(255, 255, 255, 0.65); 
+            --danger: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            overflow: hidden; 
+            margin: 0;
+        }
+
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; 
+            pointer-events: none;
+            background: radial-gradient(circle at center, #ffffff 0%, #e8f5e9 100%);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 45px 40px;
+            background-color: var(--glass-hollow);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 32px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 20px 50px rgba(39, 174, 96, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            text-align: center;
+            position: relative; 
+            z-index: 999; 
+        }
+
+        .logo-box {
+            width: 68px;
+            height: 68px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            color: #ffffff;
+            box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+        }
+
+        h1 { font-size: 28px; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; letter-spacing: -1px; }
+        .subtitle { font-size: 14px; color: #4a5568; margin-bottom: 35px; font-weight: 600; }
+
+        form { display: flex; flex-direction: column; gap: 20px; text-align: left; }
+        
+        .input-group label { 
+            display: block; 
+            font-size: 11px; 
+            font-weight: 800; 
+            color: #2c3e50; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            margin-left: 4px;
+        }
+        
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+        .input-wrapper i { position: absolute; left: 16px; font-size: 20px; color: #2c3e50; }
+        
+        .input-wrapper input {
+            width: 100%;
+            padding: 15px 15px 15px 50px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border: 1.5px solid rgba(44, 62, 80, 0.1);
+            border-radius: 16px;
+            outline: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-dark);
+            transition: 0.3s;
+        }
+
+        .input-wrapper input:focus { 
+            border-color: #2c3e50; 
+            background-color: #fff; 
+            box-shadow: 0 0 0 4px rgba(44, 62, 80, 0.1); 
+        }
+
+        .submit-btn {
+            width: 100%; padding: 16px;
+            background: #2c3e50;
+            border: none; border-radius: 16px; color: #fff; font-weight: 700;
+            cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;
+            box-shadow: 0 4px 0 #1a252f;
+            transition: all 0.1s;
+            margin-top: 10px;
+        }
+
+        .submit-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #1a252f; }
+        
+        .footer-link { margin-top: 30px; font-size: 13px; color: #4a5568; font-weight: 600; }
+        .footer-link a { color: var(--primary-green); text-decoration: none; font-weight: 800; }
+
+        #admin-error {
+            color: var(--danger);
+            font-size: 13px;
+            margin-top: 15px;
+            font-weight: 600;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="login-container">
+        <div class="logo-box"><i class='bx bxs-lock-alt'></i></div>
+        <h1>Admin Portal</h1>
+        <p class="subtitle">Secure Management Access</p>
+
+        <form id="admin-login-form">
+            <div class="input-group">
+                <label>Username</label>
+                <div class="input-wrapper">
+                    <i class='bx bxs-user'></i>
+                    <input type="text" id="admin-username" placeholder="Enter admin username" required>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <div class="input-wrapper">
+                    <i class='bx bxs-key'></i>
+                    <input type="password" id="admin-password" placeholder="••••••••" required>
+                </div>
+            </div>
+            <button type="submit" class="submit-btn">Authorize Access <i class='bx bx-shield-quarter'></i></button>
+            <div id="admin-error"></div>
+        </form>
+        <div class="footer-link">Not an Admin? <a href="/">Student Portal</a> | <a href="/driver">Driver Portal</a></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let particlesArray = [];
+        const mouse = { x: null, y: null, radius: 180 };
+        const icons = ['🔒', '🔑', '🛡️', '⚙️', '📊', '📈', '📋', '📁'];
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.x;
+            mouse.y = e.y;
+        });
+
+        class Particle {
+            constructor() { this.init(); }
+            init() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 12 + 10;
+                this.speed = Math.random() * 0.7 + 0.2;
+                this.isVertical = Math.random() > 0.5;
+                this.direction = Math.random() > 0.5 ? 1 : -1;
+                this.icon = icons[Math.floor(Math.random() * icons.length)];
+                this.opacity = Math.random() * 0.3 + 0.1;
+            }
+            update() {
+                if (this.isVertical) this.y += this.speed * this.direction;
+                else this.x += this.speed * this.direction;
+
+                let dx = mouse.x - this.x;
+                let dy = mouse.y - this.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < mouse.radius) {
+                    let force = (mouse.radius - distance) / mouse.radius;
+                    this.x -= (dx / distance) * force * 12;
+                    this.y -= (dy / distance) * force * 12;
+                }
+                if (Math.random() < 0.004) this.isVertical = !this.isVertical;
+                if (this.x < -40) this.x = canvas.width + 40;
+                if (this.x > canvas.width + 40) this.x = -40;
+                if (this.y < -40) this.y = canvas.height + 40;
+                if (this.y > canvas.height + 40) this.y = -40;
+                this.draw();
+            }
+            draw() {
+                ctx.globalAlpha = this.opacity;
+                ctx.font = `${this.size}px Arial`;
+                ctx.fillText(this.icon, this.x, this.y);
+            }
+        }
+
+        function drawGrid() {
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(44, 62, 80, 0.05)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=60) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
+            for(let i=0; i<canvas.height; i+=60) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); }
+            ctx.stroke();
+        }
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particlesArray = [];
+            for (let i = 0; i < 120; i++) { particlesArray.push(new Particle()); }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            particlesArray.forEach(p => p.update());
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', init);
+        init();
+        animate();
+
+        // Admin Login Logic
+        document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+            const errorDiv = document.getElementById('admin-error');
+            errorDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = '/admin/dashboard';
+                } else {
+                    errorDiv.textContent = data.message || "Invalid master credentials.";
+                    errorDiv.style.display = 'block';
+                }
+            } catch (err) {
+                console.error(err);
+                errorDiv.textContent = "Network error syncing with campus cloud.";
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

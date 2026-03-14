@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Registration | Campus Ride</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #27ae60;
+            --primary-dark: #1e8449;
+            --primary-light: #dcfce7;
+            --bg-light: #f8fafc;
+            --text-dark: #1a202c;
+            --text-muted: #64748b;
+            --glass: rgba(255, 255, 255, 0.85);
+            --border: rgba(39, 174, 96, 0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 30px;
+            z-index: 10;
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 40px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
+        }
+
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 1.8rem; font-weight: 800; color: var(--text-dark); }
+        .header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+
+        .logo-box {
+            width: 50px; height: 50px;
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; margin: 0 auto 15px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .input-group { margin-bottom: 20px; }
+        .input-group.full { grid-column: span 2; }
+        
+        label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .input-wrap { position: relative; display: flex; align-items: center; }
+        .input-wrap i { position: absolute; left: 14px; color: var(--primary); font-size: 20px; }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 14px 12px 42px;
+            border-radius: 12px;
+            border: 1.5px solid #edf2f7;
+            background: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: 0.25s;
+            box-shadow: 0 4px 0 var(--primary-dark);
+        }
+
+        .submit-btn:hover { background: var(--primary-dark); }
+        .submit-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--primary-dark); }
+
+        .status-card { display: flex; flex-direction: column; justify-content: center; }
+        
+        .status-check-box {
+            background: rgba(39, 174, 96, 0.05);
+            border: 2px dashed var(--primary);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .status-icon {
+            font-size: 40px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        #status-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 700;
+            display: none;
+        }
+
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+            display: block;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .back-link:hover { color: var(--primary); }
+
+        @media (max-width: 800px) {
+            .container { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
+            .input-group.full { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- Registration Form -->
+        <div class="card">
+            <div class="header">
+                <div class="logo-box"><i class='bx bxs-user-plus'></i></div>
+                <h1>Join the Fleet</h1>
+                <p>Register as a new student traveler</p>
+            </div>
+
+            <form id="reg-form">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Full Name</label>
+                        <div class="input-wrap">
+                            <i class='bx bx-user'></i>
+                            <input type="text" id="name" placeholder="Enter full name" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Roll Number</label>
+                        <div class="input-wrap">
+                            <i class='bx bx-id-card'></i>
+                            <input type="text" id="roll" placeholder="University ID" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Date of Birth</label>
+                        <div class="input-wrap date-split" style="display: flex; gap: 8px;">
+                            <input type="number" id="dob-day" placeholder="DD" min="1" max="31" style="flex: 1; padding: 12px 10px;" required>
+                            <input type="number" id="dob-month" placeholder="MM" min="1" max="12" style="flex: 1; padding: 12px 10px;" required>
+                            <input type="number" id="dob-year" placeholder="YYYY" min="1900" max="2100" style="flex: 2; padding: 12px 10px;" required>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Phone Number</label>
+                        <div class="input-wrap">
+                            <i class='bx bx-phone'></i>
+                            <input type="tel" id="phone" placeholder="10-digit number" required>
+                        </div>
+                    </div>
+                    <div class="input-group full">
+                        <label>Preferred Stop</label>
+                        <div class="input-wrap">
+                            <i class='bx bx-map-pin'></i>
+                            <select id="stop" required>
+                                <option value="" disabled selected>Select a stop nearest to you</option>
+                                {% for stop in stops %}
+                                <option value="{{ stop.id }}">{{ stop.stopname }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn" id="reg-btn">
+                    <span>Enroll Now</span>
+                    <i class='bx bx-send'></i>
+                </button>
+            </form>
+            <a href="/index" class="back-link"><i class='bx bx-arrow-back'></i> Back to Home</a>
+        </div>
+
+        <!-- Status Checker -->
+        <div class="card status-card">
+            <div class="header">
+                <div class="logo-box" style="background: var(--text-dark);"><i class='bx bx-search-alt-2'></i></div>
+                <h1>Check Status</h1>
+                <p>Track your enrollment progress</p>
+            </div>
+
+            <div class="status-check-box">
+                <div class="status-icon"><i class='bx bxs-badge-check'></i></div>
+                <div class="input-group" style="text-align: left;">
+                    <label>Enter Roll Number</label>
+                    <div class="input-wrap">
+                        <i class='bx bx-id-card'></i>
+                        <input type="text" id="check-roll" placeholder="Track my ID">
+                    </div>
+                </div>
+                <button type="button" class="submit-btn" style="background: var(--text-dark); box-shadow: 0 4px 0 #000;" onclick="checkStatus()">
+                    Verify My Status
+                </button>
+                
+                <div id="status-result"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Registration Logic
+        document.getElementById('reg-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('reg-btn');
+            btn.disabled = true;
+            btn.innerText = "Submitting...";
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('name').value,
+                        rollnumber: document.getElementById('roll').value,
+                        dob: `${document.getElementById('dob-year').value}-${document.getElementById('dob-month').value.padStart(2, '0')}-${document.getElementById('dob-day').value.padStart(2, '0')}`,
+                        phone: document.getElementById('phone').value,
+                        stop_id: document.getElementById('stop').value
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Registration submitted! Status: PENDING");
+                    document.getElementById('reg-form').reset();
+                } else {
+                    alert("Error: " + (data.error || "Submission failed"));
+                }
+            } catch (err) {
+                alert("Network error.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Enroll Now</span> <i class="bx bx-send"></i>';
+            }
+        });
+
+        // Status Checker
+        async function checkStatus() {
+            const roll = document.getElementById('check-roll').value.trim();
+            if (!roll) return alert("Enter roll number!");
+
+            const resultDiv = document.getElementById('status-result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = "Checking...";
+            resultDiv.className = "";
+
+            try {
+                const res = await fetch(`/api/check_status?roll=${roll}`);
+                const data = await res.json();
+                
+                if (data.status === 'pending') {
+                    resultDiv.textContent = "⏳ STATUS: PENDING REVIEW";
+                    resultDiv.classList.add('status-pending');
+                } else if (data.status === 'approved') {
+                    resultDiv.textContent = "✅ STATUS: VERIFIED & ENROLLED";
+                    resultDiv.classList.add('status-approved');
+                } else if (data.status === 'rejected') {
+                    resultDiv.textContent = "❌ STATUS: REJECTED / INVALID";
+                    resultDiv.classList.add('status-rejected');
+                } else {
+                    resultDiv.textContent = "❓ NO RECORD FOUND";
+                    resultDiv.classList.add('status-rejected');
+                }
+            } catch (err) {
+                resultDiv.textContent = "Network error.";
+            }
+        }
+    </script>
+
+</body>
+</html>
