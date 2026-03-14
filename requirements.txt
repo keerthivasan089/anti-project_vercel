@@ -10,6 +10,8 @@ itsdangerous
 MarkupSafe
 PyMySQL
 psycopg2-binary
+python-dotenv
+requests
 Werkzeug
 pycparser
 pytest
