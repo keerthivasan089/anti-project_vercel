@@ -1,1 +1,21 @@
-/api
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Environment
+.env
+
+# Local dev files
+database.sql
+debug_status.py
+fix_db.py
+init_db.py
+
+# OS
+.DS_Store
+Thumbs.db
