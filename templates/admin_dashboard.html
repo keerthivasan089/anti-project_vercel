@@ -212,6 +212,7 @@
         <a href="#pending" class="nav-item"><i class='bx bx-user-plus'></i> New Approvals</a>
         <a href="#students" class="nav-item"><i class='bx bx-group'></i> Student Fleet</a>
         <a href="#buses" class="nav-item"><i class='bx bx-bus-school'></i> Bus Directory</a>
+        <a href="#attenders" class="nav-item"><i class='bx bx-user-pin'></i> Attenders Directory</a>
     </div>
 
     <!-- Main Content -->
@@ -251,6 +252,13 @@
                 <div class="stat-content">
                     <h3>{{ stops|length }}</h3>
                     <p>Stop Points</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #e0e7ff; color: #4f46e5;"><i class='bx bx-check-shield'></i></div>
+                <div class="stat-content">
+                    <h3>{{ attendance_summary.present }}/{{ attendance_summary.marked }}</h3>
+                    <p>Present Today</p>
                 </div>
             </div>
         </div>
@@ -299,6 +307,7 @@
                     <tr>
                         <th>Roll Number</th>
                         <th>Name</th>
+                        <th>Phone</th>
                         <th>Assigned Bus</th>
                         <th>Assigned Stop</th>
                         <th>Actions</th>
@@ -309,10 +318,11 @@
                     <tr>
                         <td><b>{{ student.rollnumber }}</b></td>
                         <td>{{ student.studentname }}</td>
+                        <td>{{ student.phone or 'N/A' }}</td>
                         <td>{{ student.assigned_bus_name or 'N/A' }}</td>
                         <td>{{ student.assigned_stop_name or 'N/A' }}</td>
                         <td>
-                            <button class="action-btn btn-edit" onclick="editStudent({{ student.id }}, '{{ student.rollnumber }}', '{{ student.studentname }}', '{{ student.dob }}', '{{ student.assignedbus }}', '{{ student.assignedstop }}')"><i class='bx bx-edit'></i></button>
+                            <button class="action-btn btn-edit" onclick="editStudent({{ student.id }}, '{{ student.rollnumber }}', '{{ student.studentname }}', '{{ student.dob }}', '{{ student.assignedbus }}', '{{ student.assignedstop }}', '{{ student.phone }}')"><i class='bx bx-edit'></i></button>
                             <button class="action-btn btn-delete" onclick="deleteStudent({{ student.id }})"><i class='bx bx-trash'></i></button>
                         </td>
                     </tr>
@@ -351,6 +361,37 @@
                         <td>
                             <button class="action-btn btn-edit" onclick="editBus({{ bus.id }}, '{{ bus.busnumber }}', '{{ bus.drivername }}', '{{ bus.driverphone }}')"><i class='bx bx-edit'></i></button>
                             <button class="action-btn btn-delete" onclick="deleteBus({{ bus.id }})"><i class='bx bx-trash'></i></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Attender Directory -->
+        <div class="section-header" id="attenders">
+            <h2>Attender Directory</h2>
+            <button class="portal-btn" onclick="openAddAttenderModal()"><i class='bx bx-plus'></i> Add Attender</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Attender Name</th>
+                        <th>Phone Number</th>
+                        <th>Assigned Bus</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attender in attenders %}
+                    <tr>
+                        <td><b>{{ attender.attendername }}</b></td>
+                        <td>{{ attender.attenderphone }}</td>
+                        <td>{{ attender.assigned_bus_name or 'N/A' }}</td>
+                        <td>
+                            <button class="action-btn btn-edit" onclick="editAttender({{ attender.id }}, '{{ attender.attendername }}', '{{ attender.attenderphone }}', '{{ attender.assignedbus }}')"><i class='bx bx-edit'></i></button>
+                            <button class="action-btn btn-delete" onclick="deleteAttender({{ attender.id }})"><i class='bx bx-trash'></i></button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -415,6 +456,10 @@
                     <input type="date" id="student-dob" required>
                 </div>
                 <div class="form-row">
+                    <label>Phone Number</label>
+                    <input type="tel" id="student-phone" placeholder="Enter student phone">
+                </div>
+                <div class="form-row">
                     <label>Assign Bus</label>
                     <select id="student-bus" required>
                         <option value="" disabled selected>Select Bus</option>
@@ -469,6 +514,39 @@
         </div>
     </div>
 
+    <!-- Attender Add/Edit Modal -->
+    <div class="overlay" id="attenderModal">
+        <div class="form-card">
+            <h2 id="attender-modal-title">Add/Update Attender</h2>
+            <form id="attender-form" onsubmit="submitAttender(event)">
+                <input type="hidden" id="attender-id" value="">
+                
+                <div class="form-row">
+                    <label>Attender Name</label>
+                    <input type="text" id="attender-name" required placeholder="Enter attender name">
+                </div>
+                <div class="form-row">
+                    <label>Phone Number</label>
+                    <input type="tel" id="attender-phone" required placeholder="Enter phone number">
+                </div>
+                <div class="form-row">
+                    <label>Assign Bus</label>
+                    <select id="attender-bus" required>
+                        <option value="" disabled selected>Select Bus</option>
+                        {% for bus in all_buses %}
+                        <option value="{{ bus.id }}">{{ bus.busnumber }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Attender</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeAttenderModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -499,6 +577,36 @@
             .addTo(map)
             .bindPopup("<b>Stop: {{ stop.stopname }}</b>");
         {% endfor %}
+
+        // Fetch and draw route polylines
+        async function drawRoutes() {
+            try {
+                const res = await fetch('/api/routes');
+                const data = await res.json();
+                const colors = ['#27ae60', '#2980b9', '#8e44ad', '#f39c12', '#c0392b', '#16a085'];
+                let idx = 0;
+                
+                for (const busName in data.routes) {
+                    const path = data.routes[busName];
+                    if (path.length >= 2) {
+                        const coordsString = path.map(p => `${p[1]},${p[0]}`).join(';');
+                        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+                        try {
+                            const osrmRes = await fetch(url);
+                            const osrmData = await osrmRes.json();
+                            if (osrmData.routes && osrmData.routes.length > 0) {
+                                const latLngs = osrmData.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                                L.polyline(latLngs, { color: colors[idx % colors.length], weight: 4, opacity: 0.6, dashArray: '5, 10' }).addTo(map);
+                            }
+                        } catch(e) {
+                            L.polyline(path, { color: colors[idx % colors.length], weight: 4, opacity: 0.5 }).addTo(map);
+                        }
+                    }
+                    idx++;
+                }
+            } catch(e) { console.error("Routes error", e); }
+        }
+        drawRoutes();
 
         // Periodic Map Update — FIXED: correctly parse data.buses
         async function updateMap() {
@@ -618,13 +726,14 @@
         }
 
         // FIXED: now receives student_id as first argument
-        function editStudent(studentId, roll, name, dob, busId, stopId) {
+        function editStudent(studentId, roll, name, dob, busId, stopId, phone) {
             document.getElementById('student-modal-title').innerText = "Edit Student";
             document.getElementById('student-id').value = studentId;
             document.getElementById('student-roll').value = roll;
             document.getElementById('student-roll').readOnly = true;
             document.getElementById('student-name').value = name;
             document.getElementById('student-dob').value = dob;
+            document.getElementById('student-phone').value = phone === 'None' || !phone ? '' : phone;
             document.getElementById('student-bus').value = busId;
             document.getElementById('student-stop').value = stopId;
             document.getElementById('studentModal').style.display = 'flex';
@@ -642,6 +751,7 @@
                 rollnumber: document.getElementById('student-roll').value,
                 name: document.getElementById('student-name').value,
                 dob: document.getElementById('student-dob').value,
+                phone: document.getElementById('student-phone').value,
                 bus_id: document.getElementById('student-bus').value,
                 stop_id: document.getElementById('student-stop').value
             };
@@ -719,6 +829,60 @@
                 const result = await res.json();
                 if (result.success) { location.reload(); }
                 else { alert('Failed to save bus: ' + (result.message || result.error || 'Unknown error')); }
+            } catch(e) { alert("Network error: " + e.message); }
+        }
+
+        // ===================== ATTENDER CRUD =====================
+
+        async function deleteAttender(id) {
+            if (!confirm("Delete this attender?")) return;
+            try {
+                const res = await fetch(`/api/admin/delete_attender/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) location.reload();
+                else alert("Failed to delete attender");
+            } catch(e) { alert("Network error: " + e.message); }
+        }
+
+        function openAddAttenderModal() {
+            document.getElementById('attender-modal-title').innerText = "Add Attender";
+            document.getElementById('attender-form').reset();
+            document.getElementById('attender-id').value = '';
+            document.getElementById('attenderModal').style.display = 'flex';
+        }
+
+        function editAttender(id, name, phone, busId) {
+            document.getElementById('attender-modal-title').innerText = "Edit Attender";
+            document.getElementById('attender-id').value = id;
+            document.getElementById('attender-name').value = name;
+            document.getElementById('attender-phone').value = phone;
+            document.getElementById('attender-bus').value = busId;
+            document.getElementById('attenderModal').style.display = 'flex';
+        }
+
+        function closeAttenderModal() {
+            document.getElementById('attenderModal').style.display = 'none';
+        }
+
+        async function submitAttender(e) {
+            e.preventDefault();
+            const id = document.getElementById('attender-id').value;
+            const data = {
+                attendername: document.getElementById('attender-name').value,
+                attenderphone: document.getElementById('attender-phone').value,
+                assignedbus: document.getElementById('attender-bus').value
+            };
+            if (id) data.attender_id = id;
+            
+            try {
+                const res = await fetch('/api/admin/add_attender', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) location.reload();
+                else alert('Failed to save attender. Ensure phone is unique.');
             } catch(e) { alert("Network error: " + e.message); }
         }
     </script>

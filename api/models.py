@@ -3,9 +3,10 @@ import psycopg2.extras
 from api.config import Config
 from flask import current_app
 import time
+from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
 # Dictionary to track the last manual (driver) update time per bus
-# This allows us to suppress simulation updates for active drivers
 REAL_TIME_LOCKS = {}
 
 def get_db_connection():
@@ -19,7 +20,9 @@ def get_db_connection():
         print(f"❌ DB Error: {err}")
         return None
 
-# ✅ FIXED BusModel (SINGLE CLASS)
+# =============================================
+# BUS MODEL
+# =============================================
 class BusModel:
     @staticmethod
     def get_all_buses():
@@ -55,15 +58,13 @@ class BusModel:
         current_time = time.time()
         
         if not is_simulation:
-            # Mark this bus as having a real driver update
             REAL_TIME_LOCKS[busid] = current_time
         else:
-            # If this is a simulation, check if a real driver updated in the last 2 minutes
             last_real_update = REAL_TIME_LOCKS.get(busid, 0)
             if current_time - last_real_update < 120:
                 cursor.close()
                 conn.close()
-                return True # Skip simulation if real driver is active
+                return True
 
         cursor.execute("SELECT id FROM locationupdates WHERE busid = %s", (busid,))
         record = cursor.fetchone()
@@ -86,7 +87,7 @@ class BusModel:
         return True
 
     @staticmethod
-    def get_all_locations():  # ✅ FIXED table/column names
+    def get_all_locations():
         conn = get_db_connection()
         if not conn: return []
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -98,7 +99,6 @@ class BusModel:
         """)
         locations = cursor.fetchall()
         
-        # Serialize Decimal and Datetime types into standard Python types for JSON
         for loc in locations:
             if loc.get('latitude') is not None:
                 loc['latitude'] = float(loc['latitude'])
@@ -113,48 +113,47 @@ class BusModel:
 
     @staticmethod
     def get_buses_with_stops():
-        """Returns all buses and their designated stops to populate the driver dropdown."""
         conn = get_db_connection()
         if not conn: return []
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        # Note: Since the DB schema doesn't strictly explicitly hard-link one single busstop to a bus 
-        # outside of the students table, we'll just fetch all buses so the driver can select theirs.
         cursor.execute("SELECT id, busnumber FROM buses ORDER BY id")
         buses = cursor.fetchall()
         cursor.close()
         conn.close()
         return buses
 
-# ✅ ADMIN MODEL FOR INSERTING DATA
+# =============================================
+# ADMIN MODEL
+# =============================================
 class AdminModel:
     @staticmethod
-    def add_student(rollnumber, name, dob, bus_id, stop_id, student_id=None):
+    def add_student(rollnumber, name, dob, bus_id, stop_id, student_id=None, phone=None):
         conn = get_db_connection()
         if not conn: return False
         try:
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             if student_id:
-                # Update existing student
                 cursor.execute("""
                     UPDATE students SET 
                         rollnumber = %s,
                         studentname = %s,
                         dob = %s,
                         assignedbus = %s,
-                        assignedstop = %s
+                        assignedstop = %s,
+                        phone = %s
                     WHERE id = %s
-                """, (rollnumber, name, dob, bus_id, stop_id, student_id))
+                """, (rollnumber, name, dob, bus_id, stop_id, phone, student_id))
             else:
-                # Insert new student (or update if exactly same rollnumber based on ON CONFLICT)
                 cursor.execute("""
-                    INSERT INTO students (rollnumber, studentname, dob, assignedbus, assignedstop)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO students (rollnumber, studentname, dob, assignedbus, assignedstop, phone)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (rollnumber) DO UPDATE SET
                         studentname = EXCLUDED.studentname,
                         dob = EXCLUDED.dob,
                         assignedbus = EXCLUDED.assignedbus,
-                        assignedstop = EXCLUDED.assignedstop
-                """, (rollnumber, name, dob, bus_id, stop_id))
+                        assignedstop = EXCLUDED.assignedstop,
+                        phone = EXCLUDED.phone
+                """, (rollnumber, name, dob, bus_id, stop_id, phone))
             conn.commit()
             return True
         except Exception as e:
@@ -177,7 +176,6 @@ class AdminModel:
                     WHERE id = %s
                 """, (busnumber, drivername, driverphone, bus_id))
             else:
-                # Try to update by busnumber first if no ID is given (fallback)
                 cursor.execute("""
                     UPDATE buses SET drivername = %s, driverphone = %s, isActive = TRUE 
                     WHERE busnumber = %s
@@ -241,7 +239,6 @@ class AdminModel:
         if not conn: return False
         try:
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            # Due to cascading foreign keys, deleting a bus will nullify/delete related tracking
             cursor.execute("DELETE FROM buses WHERE id = %s", (bus_id,))
             conn.commit()
             return True
@@ -251,6 +248,211 @@ class AdminModel:
         finally:
             if conn: cursor.close(); conn.close()
 
+# =============================================
+# ATTENDER MODEL
+# =============================================
+class AttenderModel:
+    @staticmethod
+    def get_by_auth(bus_id, attenderphone):
+        conn = get_db_connection()
+        if not conn: return None
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT a.*, b.busnumber 
+            FROM attenders a
+            LEFT JOIN buses b ON a.assignedbus = b.id
+            WHERE a.assignedbus = %s AND a.attenderphone = %s
+        """, (bus_id, attenderphone))
+        attender = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return attender
+
+    @staticmethod
+    def get_all():
+        conn = get_db_connection()
+        if not conn: return []
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT a.*, b.busnumber as assigned_bus_name
+            FROM attenders a
+            LEFT JOIN buses b ON a.assignedbus = b.id
+            ORDER BY a.id
+        """)
+        attenders = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return attenders
+
+    @staticmethod
+    def add_or_update(attendername, attenderphone, assignedbus, attender_id=None):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            if attender_id:
+                cursor.execute("""
+                    UPDATE attenders SET attendername = %s, attenderphone = %s, assignedbus = %s
+                    WHERE id = %s
+                """, (attendername, attenderphone, assignedbus, attender_id))
+            else:
+                cursor.execute("""
+                    INSERT INTO attenders (attendername, attenderphone, assignedbus)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (attenderphone) DO UPDATE SET
+                        attendername = EXCLUDED.attendername,
+                        assignedbus = EXCLUDED.assignedbus
+                """, (attendername, attenderphone, assignedbus))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Attender Add/Update Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def delete(attender_id):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("DELETE FROM attenders WHERE id = %s", (attender_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Attender Delete Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+# =============================================
+# ATTENDANCE MODEL
+# =============================================
+class AttendanceModel:
+    @staticmethod
+    def get_students_for_bus(bus_id):
+        """Get all students assigned to a bus, with today's attendance status."""
+        conn = get_db_connection()
+        if not conn: return []
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT s.id, s.rollnumber, s.studentname, s.phone,
+                   st.stopname as assigned_stop_name,
+                   a.status as today_status
+            FROM students s
+            LEFT JOIN busstops st ON s.assignedstop = st.id
+            LEFT JOIN attendance a ON s.id = a.student_id AND a.attendance_date = CURRENT_DATE
+            WHERE s.assignedbus = %s
+            ORDER BY s.studentname
+        """, (bus_id,))
+        students = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return students
+
+    @staticmethod
+    def mark_attendance(student_id, bus_id, attender_id, status):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("""
+                INSERT INTO attendance (student_id, bus_id, attender_id, attendance_date, status)
+                VALUES (%s, %s, %s, CURRENT_DATE, %s)
+                ON CONFLICT (student_id, attendance_date) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    attender_id = EXCLUDED.attender_id,
+                    marked_at = CURRENT_TIMESTAMP
+            """, (student_id, bus_id, attender_id, status))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Mark Attendance Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def get_today_summary(bus_id):
+        """Get today's attendance summary for a bus."""
+        conn = get_db_connection()
+        if not conn: return {"total": 0, "present": 0, "absent": 0}
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present,
+                COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent
+            FROM students s
+            LEFT JOIN attendance a ON s.id = a.student_id AND a.attendance_date = CURRENT_DATE
+            WHERE s.assignedbus = %s
+        """, (bus_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return result or {"total": 0, "present": 0, "absent": 0}
+
+    @staticmethod
+    def get_all_today_summary():
+        """Get overall attendance summary for admin dashboard."""
+        conn = get_db_connection()
+        if not conn: return {"total_students": 0, "marked": 0, "present": 0, "absent": 0}
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT 
+                (SELECT COUNT(*) FROM students) as total_students,
+                COUNT(a.id) as marked,
+                COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present,
+                COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent
+            FROM attendance a
+            WHERE a.attendance_date = CURRENT_DATE
+        """)
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return result or {"total_students": 0, "marked": 0, "present": 0, "absent": 0}
+
+    @staticmethod
+    def get_attendance_by_date(bus_id, date_str):
+        """Get attendance for a specific date (for admin history view)."""
+        conn = get_db_connection()
+        if not conn: return []
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT s.rollnumber, s.studentname, a.status, a.marked_at
+            FROM attendance a
+            JOIN students s ON a.student_id = s.id
+            WHERE a.bus_id = %s AND a.attendance_date = %s
+            ORDER BY s.studentname
+        """, (bus_id, date_str))
+        records = cursor.fetchall()
+        for r in records:
+            if r.get('marked_at'):
+                r['marked_at'] = r['marked_at'].isoformat()
+        cursor.close()
+        conn.close()
+        return records
+
+# =============================================
+# ADMIN AUTH (Password Hashing)
+# =============================================
+class AdminAuthModel:
+    # Default hash for 'admin123' — generated with werkzeug
+    DEFAULT_HASH = generate_password_hash('admin123')
+    
+    @staticmethod
+    def verify(username, password):
+        """Verify admin credentials. Uses env var ADMIN_PASSWORD_HASH if set, otherwise defaults."""
+        if username != 'admin':
+            return False
+        
+        stored_hash = os.environ.get('ADMIN_PASSWORD_HASH', AdminAuthModel.DEFAULT_HASH)
+        return check_password_hash(stored_hash, password)
+
+# =============================================
+# REGISTRATION MODEL
+# =============================================
 class RegistrationModel:
     @staticmethod
     def add_registration(name, roll_no, dob, phone, stop_id):
@@ -326,17 +528,18 @@ class RegistrationModel:
         conn.close()
         return record
 
-# ✅ FIXED StopModel (SINGLE CLASS)
+# =============================================
+# STOP MODEL
+# =============================================
 class StopModel:
     @staticmethod
-    def get_all_stops():  # ✅ FIXED table name
+    def get_all_stops():
         conn = get_db_connection()
         if not conn: return []
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute("SELECT * FROM busstops")
         stops = cursor.fetchall()
 
-        # Serialize Decimals for JSON response (and template access)
         for stop in stops:
             if stop.get('latitude') is not None:
                 stop['latitude'] = float(stop['latitude'])
@@ -347,27 +550,25 @@ class StopModel:
         conn.close()
         return stops
 
-# ✅ STUDENT LOGIN FUNCTION (DEBUG VERSION)
+# =============================================
+# STUDENT LOGIN
+# =============================================
 def get_student_by_auth(rollnumber, dob):
     print(f"🔍 Searching student: {rollnumber} | {dob}")
     
-    # Generate possible MySQL date formats based on the input
-    possible_dobs = [dob] # The exact string entered
+    possible_dobs = [dob]
     
     from datetime import datetime
     
-    # Normalize slashes to dashes for easier parsing
     normalized_dob = dob.replace('/', '-')
     
     try:
-        # If they entered DD-MM-YYYY or DD/MM/YYYY
         parsed1 = datetime.strptime(normalized_dob, "%d-%m-%Y")
         possible_dobs.append(parsed1.strftime("%Y-%m-%d"))
     except ValueError:
         pass
         
     try:
-        # If they entered MM-DD-YYYY or MM/DD/YYYY
         parsed2 = datetime.strptime(normalized_dob, "%m-%d-%Y")
         possible_dobs.append(parsed2.strftime("%Y-%m-%d"))
     except ValueError:
@@ -382,7 +583,6 @@ def get_student_by_auth(rollnumber, dob):
     
     cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        # We use an IN clause so any of the generated date formats will match
         placeholders = ', '.join(['%s'] * len(possible_dobs))
         query = f"""
             SELECT s.*, b.busnumber as assigned_bus_name, st.stopname as assigned_stop_name 

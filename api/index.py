@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from api.models import BusModel, StopModel, AdminModel, RegistrationModel, get_student_by_auth
+from api.models import (BusModel, StopModel, AdminModel, RegistrationModel, 
+                         AttenderModel, AttendanceModel, AdminAuthModel, get_student_by_auth)
 from api.utils import haversine, calculate_eta
 import os
 
@@ -22,7 +23,6 @@ def student_map():
             return redirect(url_for('index'))
             
         stops = StopModel.get_all_stops()
-
         if stops is None:
             stops = []
 
@@ -34,7 +34,6 @@ def student_map():
             assigned_bus_id=session.get('assigned_bus_id'),
             assigned_stop_id=session.get('assigned_stop_id')
         )
-
     except Exception as e:
         return f"MAP ERROR: {str(e)}"
 
@@ -99,9 +98,6 @@ def driver_panel():
     buses = BusModel.get_buses_with_stops()
     return render_template('driver.html', buses=buses)
 
-# -----------------------------
-# DRIVER LOGIN
-# -----------------------------
 @app.route('/api/driver/login', methods=['POST'])
 def driver_login():
     try:
@@ -135,6 +131,105 @@ def driver_logout():
     return redirect(url_for('driver_panel'))
 
 # -----------------------------
+# ATTENDER PORTAL
+# -----------------------------
+@app.route('/attender')
+def attender_login_page():
+    if session.get('role') == 'attender' and session.get('attender_id'):
+        return redirect(url_for('attender_dashboard'))
+    buses = BusModel.get_buses_with_stops()
+    return render_template('attender_login.html', buses=buses)
+
+@app.route('/api/attender/login', methods=['POST'])
+def process_attender_login():
+    try:
+        data = request.json
+        bus_id = data.get('bus_id')
+        phone = data.get('phone')
+
+        attender = AttenderModel.get_by_auth(bus_id, phone)
+
+        if attender:
+            session['role'] = 'attender'
+            session['attender_id'] = attender['id']
+            session['attender_name'] = attender['attendername']
+            session['attender_bus_id'] = attender['assignedbus']
+            session['attender_bus_name'] = attender.get('busnumber', 'Unknown')
+            return jsonify({"success": True, "message": "Login successful"})
+
+        return jsonify({"success": False, "message": "Invalid Bus or Phone Number"}), 401
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/attender/dashboard')
+def attender_dashboard():
+    if session.get('role') != 'attender' or not session.get('attender_id'):
+        return redirect(url_for('attender_login_page'))
+    
+    bus_id = session.get('attender_bus_id')
+    students = AttendanceModel.get_students_for_bus(bus_id)
+    summary = AttendanceModel.get_today_summary(bus_id)
+    
+    return render_template('attender_dashboard.html',
+        attender_name=session.get('attender_name'),
+        bus_name=session.get('attender_bus_name'),
+        bus_id=bus_id,
+        students=students,
+        summary=summary
+    )
+
+@app.route('/api/attender/mark_attendance', methods=['POST'])
+def mark_attendance():
+    if session.get('role') != 'attender' or not session.get('attender_id'):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    
+    try:
+        data = request.json
+        records = data.get('records', [])
+        bus_id = session.get('attender_bus_id')
+        attender_id = session.get('attender_id')
+        
+        success_count = 0
+        for record in records:
+            student_id = record.get('student_id')
+            status = record.get('status', 'absent')
+            if AttendanceModel.mark_attendance(student_id, bus_id, attender_id, status):
+                success_count += 1
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Marked {success_count}/{len(records)} records"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/api/attender/today_attendance', methods=['GET'])
+def get_today_attendance():
+    if session.get('role') != 'attender' or not session.get('attender_id'):
+        return jsonify({"success": False}), 401
+    
+    bus_id = session.get('attender_bus_id')
+    students = AttendanceModel.get_students_for_bus(bus_id)
+    summary = AttendanceModel.get_today_summary(bus_id)
+    
+    return jsonify({
+        "success": True,
+        "students": students,
+        "summary": summary
+    })
+
+@app.route('/attender/logout')
+def attender_logout():
+    if session.get('role') == 'attender':
+        session.pop('role', None)
+        session.pop('attender_id', None)
+        session.pop('attender_name', None)
+        session.pop('attender_bus_id', None)
+        session.pop('attender_bus_name', None)
+    return redirect(url_for('attender_login_page'))
+
+# -----------------------------
 # ADMIN PORTAL
 # -----------------------------
 @app.route('/admin')
@@ -149,7 +244,7 @@ def process_admin_login():
     username = data.get('username')
     password = data.get('password')
     
-    if username == 'admin' and password == 'admin123':
+    if AdminAuthModel.verify(username, password):
         session['role'] = 'admin'
         session['is_admin'] = True
         return jsonify({"success": True})
@@ -164,8 +259,14 @@ def admin_dashboard():
     stops = StopModel.get_all_stops()
     students_list = AdminModel.get_all_students()
     all_buses = BusModel.get_all_buses()
+    attenders = AttenderModel.get_all()
+    attendance_summary = AttendanceModel.get_all_today_summary()
     
-    return render_template('admin_dashboard.html', buses=buses, stops=stops, students=students_list, all_buses=all_buses)
+    return render_template('admin_dashboard.html', 
+        buses=buses, stops=stops, students=students_list, 
+        all_buses=all_buses, attenders=attenders,
+        attendance_summary=attendance_summary
+    )
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -240,7 +341,8 @@ def add_student():
         data = request.json
         success = AdminModel.add_student(
             data['rollnumber'], data['name'], data['dob'], 
-            data['bus_id'], data['stop_id'], data.get('student_id')
+            data['bus_id'], data['stop_id'], data.get('student_id'),
+            data.get('phone')
         )
         return jsonify({"success": success})
     except Exception as e:
@@ -258,6 +360,46 @@ def add_driver():
         return jsonify({"success": success})
     except Exception as e:
         return jsonify({"error": str(e)})
+
+# --- ATTENDER ADMIN CRUD ---
+@app.route('/api/admin/add_attender', methods=['POST'])
+def add_attender():
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
+    
+    try:
+        data = request.json
+        success = AttenderModel.add_or_update(
+            data['attendername'], data['attenderphone'], data['assignedbus'], data.get('attender_id')
+        )
+        return jsonify({"success": success})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/api/admin/delete_attender/<int:attender_id>', methods=['DELETE'])
+def admin_delete_attender(attender_id):
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
+    
+    try:
+        success = AttenderModel.delete(attender_id)
+        return jsonify({"success": success})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/api/admin/attendance_summary', methods=['GET'])
+def admin_attendance_summary():
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False}), 401
+    summary = AttendanceModel.get_all_today_summary()
+    return jsonify({"success": True, "summary": summary})
+
+@app.route('/api/admin/attendance_history', methods=['GET'])
+def admin_attendance_history():
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False}), 401
+    bus_id = request.args.get('bus_id')
+    date = request.args.get('date')
+    if not bus_id or not date:
+        return jsonify({"success": False, "message": "bus_id and date required"}), 400
+    records = AttendanceModel.get_attendance_by_date(bus_id, date)
+    return jsonify({"success": True, "records": records})
 
 @app.route('/api/admin/delete_student/<int:student_id>', methods=['DELETE'])
 def admin_delete_student(student_id):
@@ -364,6 +506,7 @@ def get_eta():
 
             etas.append({
                 "busnumber": bus['busnumber'],
+                "bus_id": bus['id'],
                 "distancekm": round(dist, 2),
                 "etaminutes": eta_minutes
             })
