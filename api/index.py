@@ -57,6 +57,7 @@ def process_student_login():
         student = get_student_by_auth(rollnumber, dob)
 
         if student:
+            session['role'] = 'student'
             session['student_id'] = student['id']
             session['student_name'] = student['studentname']
             session['assigned_bus'] = student.get('assigned_bus_name')
@@ -81,11 +82,13 @@ def process_student_login():
 # -----------------------------
 @app.route('/logout')
 def student_logout():
-    session.pop('student_id', None)
-    session.pop('student_name', None)
-    session.pop('assigned_bus', None)
-    session.pop('assigned_bus_id', None)
-    session.pop('assigned_stop_id', None)
+    if session.get('role') == 'student':
+        session.pop('role', None)
+        session.pop('student_id', None)
+        session.pop('student_name', None)
+        session.pop('assigned_bus', None)
+        session.pop('assigned_bus_id', None)
+        session.pop('assigned_stop_id', None)
     return redirect(url_for('index'))
 
 # -----------------------------
@@ -109,6 +112,7 @@ def driver_login():
         bus = BusModel.get_bus_by_auth(busid, driverphone)
 
         if bus:
+            session['role'] = 'driver'
             session['bus_id'] = bus['id']
             return jsonify({"success": True, "message": "Login successful"})
 
@@ -125,7 +129,9 @@ def driver_dashboard():
 
 @app.route('/driver/logout')
 def driver_logout():
-    session.pop('bus_id', None)
+    if session.get('role') == 'driver':
+        session.pop('role', None)
+        session.pop('bus_id', None)
     return redirect(url_for('driver_panel'))
 
 # -----------------------------
@@ -133,7 +139,7 @@ def driver_logout():
 # -----------------------------
 @app.route('/admin')
 def admin_login():
-    if session.get('is_admin') == True:
+    if session.get('role') == 'admin' and session.get('is_admin') == True:
         return redirect(url_for('admin_dashboard'))
     return render_template('admin_login.html')
 
@@ -144,13 +150,14 @@ def process_admin_login():
     password = data.get('password')
     
     if username == 'admin' and password == 'admin123':
+        session['role'] = 'admin'
         session['is_admin'] = True
         return jsonify({"success": True})
     return jsonify({"success": False, "message": "Invalid Admin Credentials"}), 401
     
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    if session.get('is_admin') != True:
+    if session.get('role') != 'admin' or session.get('is_admin') != True:
         return redirect(url_for('admin_login'))
         
     buses = BusModel.get_buses_with_stops()
@@ -162,7 +169,9 @@ def admin_dashboard():
 
 @app.route('/admin/logout')
 def admin_logout():
-    session.pop('is_admin', None)
+    if session.get('role') == 'admin':
+        session.pop('role', None)
+        session.pop('is_admin', None)
     return redirect(url_for('admin_login'))
 
 @app.route('/register')
@@ -190,13 +199,13 @@ def check_status():
 
 @app.route('/api/admin/pending_registrations', methods=['GET'])
 def get_pending_registrations():
-    if not session.get('is_admin'): return jsonify({"success": False}), 401
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False}), 401
     pending = RegistrationModel.get_pending()
     return jsonify({"pending": pending})
 
 @app.route('/api/admin/approve_registration/<int:reg_id>', methods=['POST'])
 def approve_registration(reg_id):
-    if not session.get('is_admin'): return jsonify({"success": False}), 401
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False}), 401
     try:
         data = request.json
         reg = RegistrationModel.get_registration_by_id(reg_id)
@@ -214,7 +223,7 @@ def approve_registration(reg_id):
 
 @app.route('/api/admin/reject_registration/<int:reg_id>', methods=['POST'])
 def reject_registration(reg_id):
-    if not session.get('is_admin'): return jsonify({"success": False}), 401
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False}), 401
     success = RegistrationModel.update_status(reg_id, 'rejected')
     return jsonify({"success": success})
 
@@ -225,13 +234,13 @@ def get_buses_list():
 
 @app.route('/api/admin/add_student', methods=['POST'])
 def add_student():
-    if not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
     
     try:
         data = request.json
         success = AdminModel.add_student(
             data['rollnumber'], data['name'], data['dob'], 
-            data['bus_id'], data['stop_id']
+            data['bus_id'], data['stop_id'], data.get('student_id')
         )
         return jsonify({"success": success})
     except Exception as e:
@@ -239,12 +248,12 @@ def add_student():
 
 @app.route('/api/admin/add_driver', methods=['POST'])
 def add_driver():
-    if not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
     
     try:
         data = request.json
         success = AdminModel.add_or_update_driver(
-            data['busnumber'], data['drivername'], data['driverphone']
+            data['busnumber'], data['drivername'], data['driverphone'], data.get('bus_id')
         )
         return jsonify({"success": success})
     except Exception as e:
@@ -252,7 +261,7 @@ def add_driver():
 
 @app.route('/api/admin/delete_student/<int:student_id>', methods=['DELETE'])
 def admin_delete_student(student_id):
-    if not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
     
     try:
         success = AdminModel.delete_student(student_id)
@@ -262,7 +271,7 @@ def admin_delete_student(student_id):
 
 @app.route('/api/admin/delete_bus/<int:bus_id>', methods=['DELETE'])
 def admin_delete_bus(bus_id):
-    if not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
+    if session.get('role') != 'admin' or not session.get('is_admin'): return jsonify({"success": False, "message": "Unauthorized"}), 401
     
     try:
         success = AdminModel.delete_bus(bus_id)

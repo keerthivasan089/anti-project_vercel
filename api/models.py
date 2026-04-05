@@ -128,20 +128,33 @@ class BusModel:
 # ✅ ADMIN MODEL FOR INSERTING DATA
 class AdminModel:
     @staticmethod
-    def add_student(rollnumber, name, dob, bus_id, stop_id):
+    def add_student(rollnumber, name, dob, bus_id, stop_id, student_id=None):
         conn = get_db_connection()
         if not conn: return False
         try:
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            cursor.execute("""
-                INSERT INTO students (rollnumber, studentname, dob, assignedbus, assignedstop)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (rollnumber) DO UPDATE SET
-                    studentname = EXCLUDED.studentname,
-                    dob = EXCLUDED.dob,
-                    assignedbus = EXCLUDED.assignedbus,
-                    assignedstop = EXCLUDED.assignedstop
-            """, (rollnumber, name, dob, bus_id, stop_id))
+            if student_id:
+                # Update existing student
+                cursor.execute("""
+                    UPDATE students SET 
+                        rollnumber = %s,
+                        studentname = %s,
+                        dob = %s,
+                        assignedbus = %s,
+                        assignedstop = %s
+                    WHERE id = %s
+                """, (rollnumber, name, dob, bus_id, stop_id, student_id))
+            else:
+                # Insert new student (or update if exactly same rollnumber based on ON CONFLICT)
+                cursor.execute("""
+                    INSERT INTO students (rollnumber, studentname, dob, assignedbus, assignedstop)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (rollnumber) DO UPDATE SET
+                        studentname = EXCLUDED.studentname,
+                        dob = EXCLUDED.dob,
+                        assignedbus = EXCLUDED.assignedbus,
+                        assignedstop = EXCLUDED.assignedstop
+                """, (rollnumber, name, dob, bus_id, stop_id))
             conn.commit()
             return True
         except Exception as e:
@@ -153,22 +166,28 @@ class AdminModel:
                 conn.close()
 
     @staticmethod
-    def add_or_update_driver(busnumber, drivername, driverphone):
+    def add_or_update_driver(busnumber, drivername, driverphone, bus_id=None):
         conn = get_db_connection()
         if not conn: return False
         try:
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            # Try to update first, if no rows updated, insert new bus
-            cursor.execute("""
-                UPDATE buses SET drivername = %s, driverphone = %s, isActive = TRUE 
-                WHERE busnumber = %s
-            """, (drivername, driverphone, busnumber))
-            
-            if cursor.rowcount == 0:
-                 cursor.execute("""
-                    INSERT INTO buses (busnumber, drivername, driverphone, isActive)
-                    VALUES (%s, %s, %s, TRUE)
-                """, (busnumber, drivername, driverphone))
+            if bus_id:
+                cursor.execute("""
+                    UPDATE buses SET busnumber = %s, drivername = %s, driverphone = %s, isActive = TRUE 
+                    WHERE id = %s
+                """, (busnumber, drivername, driverphone, bus_id))
+            else:
+                # Try to update by busnumber first if no ID is given (fallback)
+                cursor.execute("""
+                    UPDATE buses SET drivername = %s, driverphone = %s, isActive = TRUE 
+                    WHERE busnumber = %s
+                """, (drivername, driverphone, busnumber))
+                
+                if cursor.rowcount == 0:
+                     cursor.execute("""
+                        INSERT INTO buses (busnumber, drivername, driverphone, isActive)
+                        VALUES (%s, %s, %s, TRUE)
+                    """, (busnumber, drivername, driverphone))
             conn.commit()
             return True
         except Exception as e:

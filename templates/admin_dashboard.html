@@ -82,6 +82,7 @@
             color: var(--text);
             border: 1px solid #e5e7eb;
             transition: 0.2s;
+            cursor: pointer;
         }
         .portal-btn:hover { background: #f9fafb; border-color: var(--primary); }
 
@@ -96,7 +97,7 @@
             margin-bottom: 30px;
         }
 
-        #map {
+        #admin-map {
             width: 100%;
             height: 450px;
             border-radius: 12px;
@@ -106,7 +107,7 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, min-minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -207,7 +208,7 @@
     <div class="sidebar">
         <h2><i class='bx bxs-bus'></i> Admin Center</h2>
         <a href="#" class="nav-item active"><i class='bx bxs-dashboard'></i> Overview</a>
-        <a href="#map" class="nav-item"><i class='bx bx-map-alt'></i> Live Tracking</a>
+        <a href="#map-section" class="nav-item"><i class='bx bx-map-alt'></i> Live Tracking</a>
         <a href="#pending" class="nav-item"><i class='bx bx-user-plus'></i> New Approvals</a>
         <a href="#students" class="nav-item"><i class='bx bx-group'></i> Student Fleet</a>
         <a href="#buses" class="nav-item"><i class='bx bx-bus-school'></i> Bus Directory</a>
@@ -255,11 +256,11 @@
         </div>
 
         <!-- Real-Time Map -->
-        <div class="section-header" id="map">
+        <div class="section-header" id="map-section">
             <h2>Real-Time Fleet Distribution</h2>
         </div>
         <div class="map-card">
-            <div id="map"></div>
+            <div id="admin-map"></div>
         </div>
 
         <!-- Pending Registrations -->
@@ -311,7 +312,7 @@
                         <td>{{ student.assigned_bus_name or 'N/A' }}</td>
                         <td>{{ student.assigned_stop_name or 'N/A' }}</td>
                         <td>
-                            <button class="action-btn btn-edit" onclick="editStudent('{{ student.rollnumber }}', '{{ student.studentname }}', '{{ student.dob }}', '{{ student.assignedbus }}', '{{ student.assignedstop }}')"><i class='bx bx-edit'></i></button>
+                            <button class="action-btn btn-edit" onclick="editStudent({{ student.id }}, '{{ student.rollnumber }}', '{{ student.studentname }}', '{{ student.dob }}', '{{ student.assignedbus }}', '{{ student.assignedstop }}')"><i class='bx bx-edit'></i></button>
                             <button class="action-btn btn-delete" onclick="deleteStudent({{ student.id }})"><i class='bx bx-trash'></i></button>
                         </td>
                     </tr>
@@ -343,12 +344,12 @@
                         <td>{{ bus.drivername }}</td>
                         <td>{{ bus.driverphone }}</td>
                         <td>
-                            <span class="status-badge {{ 'bg-approved' if bus.isActive else 'bg-pending' }}">
-                                {{ 'ACTIVE' if bus.isActive else 'INACTIVE' }}
+                            <span class="status-badge {{ 'bg-approved' if bus.isactive else 'bg-pending' }}">
+                                {{ 'ACTIVE' if bus.isactive else 'INACTIVE' }}
                             </span>
                         </td>
                         <td>
-                            <button class="action-btn btn-edit" onclick="editBus('{{ bus.busnumber }}', '{{ bus.drivername }}', '{{ bus.driverphone }}')"><i class='bx bx-edit'></i></button>
+                            <button class="action-btn btn-edit" onclick="editBus({{ bus.id }}, '{{ bus.busnumber }}', '{{ bus.drivername }}', '{{ bus.driverphone }}')"><i class='bx bx-edit'></i></button>
                             <button class="action-btn btn-delete" onclick="deleteBus({{ bus.id }})"><i class='bx bx-trash'></i></button>
                         </td>
                     </tr>
@@ -357,6 +358,8 @@
             </table>
         </div>
     </div>
+
+    <!-- ===================== MODALS ===================== -->
 
     <!-- Approval Modal -->
     <div class="overlay" id="approvalOverlay">
@@ -392,12 +395,86 @@
         </div>
     </div>
 
+    <!-- Student Add/Edit Modal -->
+    <div class="overlay" id="studentModal">
+        <div class="form-card">
+            <h2 id="student-modal-title">Add New Student</h2>
+            <form id="student-form" onsubmit="submitStudent(event)">
+                <input type="hidden" id="student-id" value="">
+                
+                <div class="form-row">
+                    <label>Roll Number</label>
+                    <input type="text" id="student-roll" required placeholder="Enter roll number">
+                </div>
+                <div class="form-row">
+                    <label>Student Name</label>
+                    <input type="text" id="student-name" required placeholder="Enter student name">
+                </div>
+                <div class="form-row">
+                    <label>Date of Birth</label>
+                    <input type="date" id="student-dob" required>
+                </div>
+                <div class="form-row">
+                    <label>Assign Bus</label>
+                    <select id="student-bus" required>
+                        <option value="" disabled selected>Select Bus</option>
+                        {% for bus in all_buses %}
+                        <option value="{{ bus.id }}">{{ bus.busnumber }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Assign Stop</label>
+                    <select id="student-stop" required>
+                        <option value="" disabled selected>Select Stop</option>
+                        {% for stop in stops %}
+                        <option value="{{ stop.id }}">{{ stop.stopname }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Student</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeStudentModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bus Add/Edit Modal -->
+    <div class="overlay" id="busModal">
+        <div class="form-card">
+            <h2 id="bus-modal-title">Add/Update Bus</h2>
+            <form id="bus-form" onsubmit="submitBus(event)">
+                <input type="hidden" id="bus-id" value="">
+                
+                <div class="form-row">
+                    <label>Bus Number / Name</label>
+                    <input type="text" id="bus-number" required placeholder="e.g. Bus-Hosur">
+                </div>
+                <div class="form-row">
+                    <label>Driver Name</label>
+                    <input type="text" id="bus-driver" required placeholder="Enter driver name">
+                </div>
+                <div class="form-row">
+                    <label>Driver Phone</label>
+                    <input type="text" id="bus-phone" required placeholder="Enter phone number">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Bus</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeBusModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // Initialize Map
-        const map = L.map('map').setView([12.7831, 77.9622], 13); // Centered on Hosur/College area
+        // Initialize Map (using unique ID to avoid duplicate id issue)
+        const map = L.map('admin-map').setView([12.7831, 77.9622], 13);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap'
@@ -423,19 +500,18 @@
             .bindPopup("<b>Stop: {{ stop.stopname }}</b>");
         {% endfor %}
 
-        // Periodic Map Update
+        // Periodic Map Update — FIXED: correctly parse data.buses
         async function updateMap() {
             try {
                 const res = await fetch('/api/buses');
-                const locations = await res.json();
+                const data = await res.json();
+                const busList = data.buses || [];
                 
-                locations.forEach(loc => {
+                busList.forEach(loc => {
                     if (loc.latitude && loc.longitude) {
                         if (busMarkers[loc.id]) {
-                            // Smooth move
                             busMarkers[loc.id].setLatLng([loc.latitude, loc.longitude]);
                         } else {
-                            // New marker
                             busMarkers[loc.id] = L.marker([loc.latitude, loc.longitude], {icon: busIcon})
                                 .addTo(map)
                                 .bindPopup(`<b>${loc.busnumber}</b><br>Driver: ${loc.drivername}`);
@@ -447,7 +523,7 @@
         setInterval(updateMap, 3000);
         updateMap();
 
-        // Pending Registrations Logic
+        // ===================== PENDING REGISTRATIONS =====================
         async function loadPending() {
             const tableBody = document.getElementById('pending-table-body');
             tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>';
@@ -457,7 +533,7 @@
                 const data = await res.json();
                 
                 tableBody.innerHTML = '';
-                if (data.pending.length === 0) {
+                if (!data.pending || data.pending.length === 0) {
                     tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No pending requests</td></tr>';
                     return;
                 }
@@ -477,7 +553,7 @@
                     `;
                     tableBody.appendChild(tr);
                 });
-            } catch (e) { tableBody.innerHTML = 'Error loading data'; }
+            } catch (e) { tableBody.innerHTML = '<tr><td colspan="6">Error loading data</td></tr>'; }
         }
         loadPending();
 
@@ -508,7 +584,7 @@
             if (data.success) {
                 closeApproval();
                 loadPending();
-                location.reload(); // Refresh tables
+                location.reload();
             } else {
                 alert("Approval failed");
             }
@@ -520,27 +596,31 @@
             if ((await res.json()).success) { loadPending(); }
         }
 
+        // ===================== STUDENT CRUD =====================
+
+        // FIXED: delete uses DELETE method
         async function deleteStudent(id) {
             if (!confirm("Delete this student permanently?")) return;
-            const res = await fetch(`/api/admin/delete_student/${id}`, { method: 'POST' });
-            if ((await res.json()).success) location.reload();
-        }
-
-        async function deleteBus(id) {
-            if (!confirm("Delete this bus permanently?")) return;
-            const res = await fetch(`/api/admin/delete_bus/${id}`, { method: 'POST' });
-            if ((await res.json()).success) location.reload();
+            try {
+                const res = await fetch(`/api/admin/delete_student/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) location.reload();
+                else alert("Failed to delete student: " + (data.message || data.error || "Unknown error"));
+            } catch(e) { alert("Network error: " + e.message); }
         }
 
         function openAddStudentModal() {
             document.getElementById('student-modal-title').innerText = "Add New Student";
             document.getElementById('student-form').reset();
+            document.getElementById('student-id').value = '';
             document.getElementById('student-roll').readOnly = false;
             document.getElementById('studentModal').style.display = 'flex';
         }
 
-        function editStudent(roll, name, dob, busId, stopId) {
+        // FIXED: now receives student_id as first argument
+        function editStudent(studentId, roll, name, dob, busId, stopId) {
             document.getElementById('student-modal-title').innerText = "Edit Student";
+            document.getElementById('student-id').value = studentId;
             document.getElementById('student-roll').value = roll;
             document.getElementById('student-roll').readOnly = true;
             document.getElementById('student-name').value = name;
@@ -554,8 +634,10 @@
             document.getElementById('studentModal').style.display = 'none';
         }
 
+        // FIXED: includes student_id for edit operations
         async function submitStudent(e) {
             e.preventDefault();
+            const studentId = document.getElementById('student-id').value;
             const data = {
                 rollnumber: document.getElementById('student-roll').value,
                 name: document.getElementById('student-name').value,
@@ -563,24 +645,47 @@
                 bus_id: document.getElementById('student-bus').value,
                 stop_id: document.getElementById('student-stop').value
             };
-            const res = await fetch('/api/admin/add_student', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if ((await res.json()).success) { location.reload(); }
-            else { alert('Failed to save student. Ensure Roll Number is unique.'); }
+            // If editing, include the student_id so backend does UPDATE instead of INSERT
+            if (studentId) {
+                data.student_id = studentId;
+            }
+            try {
+                const res = await fetch('/api/admin/add_student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) { location.reload(); }
+                else { alert('Failed to save student: ' + (result.message || result.error || 'Ensure Roll Number is unique.')); }
+            } catch(e) { alert("Network error: " + e.message); }
+        }
+
+        // ===================== BUS CRUD =====================
+
+        // FIXED: delete uses DELETE method
+        async function deleteBus(id) {
+            if (!confirm("Delete this bus permanently?")) return;
+            try {
+                const res = await fetch(`/api/admin/delete_bus/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) location.reload();
+                else alert("Failed to delete bus: " + (data.message || data.error || "Unknown error"));
+            } catch(e) { alert("Network error: " + e.message); }
         }
 
         function openAddBusModal() {
             document.getElementById('bus-modal-title').innerText = "Add/Update Bus";
             document.getElementById('bus-form').reset();
+            document.getElementById('bus-id').value = '';
             document.getElementById('bus-number').readOnly = false;
             document.getElementById('busModal').style.display = 'flex';
         }
 
-        function editBus(number, driver, phone) {
+        // FIXED: now receives bus_id as first argument
+        function editBus(busId, number, driver, phone) {
             document.getElementById('bus-modal-title').innerText = "Edit Bus/Driver";
+            document.getElementById('bus-id').value = busId;
             document.getElementById('bus-number').value = number;
             document.getElementById('bus-number').readOnly = true;
             document.getElementById('bus-driver').value = driver;
@@ -592,20 +697,29 @@
             document.getElementById('busModal').style.display = 'none';
         }
 
+        // FIXED: includes bus_id for edit operations
         async function submitBus(e) {
             e.preventDefault();
+            const busId = document.getElementById('bus-id').value;
             const data = {
                 busnumber: document.getElementById('bus-number').value,
                 drivername: document.getElementById('bus-driver').value,
                 driverphone: document.getElementById('bus-phone').value
             };
-            const res = await fetch('/api/admin/add_driver', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if ((await res.json()).success) { location.reload(); }
-            else { alert('Failed to save bus.'); }
+            // If editing, include the bus_id so backend does UPDATE instead of INSERT
+            if (busId) {
+                data.bus_id = busId;
+            }
+            try {
+                const res = await fetch('/api/admin/add_driver', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) { location.reload(); }
+                else { alert('Failed to save bus: ' + (result.message || result.error || 'Unknown error')); }
+            } catch(e) { alert("Network error: " + e.message); }
         }
     </script>
 </body>
