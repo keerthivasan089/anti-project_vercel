@@ -664,13 +664,13 @@
                 this.y = Math.random() * canvas.height;
                 this.baseSize = Math.random() * 14 + 10;
                 this.size = this.baseSize;
-                this.speed = Math.random() * 5.5 + 2.5; // Even faster
+                this.speed = Math.random() * 2.5 + 1.2; // Match attendance speed
                 this.isVertical = Math.random() > 0.5;
                 this.direction = Math.random() > 0.5 ? 1 : -1;
                 this.icon = icons[Math.floor(Math.random() * icons.length)];
                 this.opacity = Math.random() * 0.18 + 0.08;
                 this.rotation = Math.random() * Math.PI * 2;
-                this.rotSpeed = (Math.random() - 0.5) * 0.04; // Faster rotation
+                this.rotSpeed = (Math.random() - 0.5) * 0.04; 
             }
             update() {
                 if (this.isVertical) this.y += this.speed * this.direction;
