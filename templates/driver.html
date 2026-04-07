@@ -205,30 +205,8 @@
         <div class="footer-link">Wrong number? <a href="/driver">Restart Login</a></div>
     </div>
 
-    <!-- FIREBASE INTEGRATION -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-        
-        const firebaseConfig = {
-            apiKey: "AIzaSyCDhPizOF7jUd1HThAng22D9ei3drwyXew",
-            authDomain: "campustransit-95e75.firebaseapp.com",
-            projectId: "campustransit-95e75",
-            storageBucket: "campustransit-95e75.firebasestorage.app",
-            messagingSenderId: "844590462013",
-            appId: "1:844590462013:web:44c3a4f51589139d872654"
-        };
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'normal',
-            'callback': (response) => { document.getElementById('send-otp-btn').disabled = false; },
-            'expired-callback': () => { document.getElementById('send-otp-btn').disabled = true; }
-        });
-        window.recaptchaVerifier.render();
-
+    <!-- MOCK OTP INTEGRATION -->
+    <script>
         window.sendOTP = function() {
             const phoneInputRaw = document.getElementById("phone-number").value.trim();
             const busIdInput = document.getElementById("bus-number").value;
@@ -241,22 +219,16 @@
                 return;
             }
 
-            const phoneNumber = "+91" + phoneInputRaw;
             document.getElementById('send-otp-btn').innerText = "Broadcasting...";
             document.getElementById('send-otp-btn').disabled = true;
 
-            signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
-                .then((confirmationResult) => {
-                    window.confirmationResult = confirmationResult;
-                    document.getElementById('login-section').classList.add('hidden');
-                    document.getElementById('otp-section').classList.remove('hidden');
-                }).catch((error) => {
-                    errorDiv.innerText = "Error: " + error.message;
-                    errorDiv.style.display = 'block';
-                    document.getElementById('send-otp-btn').innerText = "Send Secure OTP";
-                    document.getElementById('send-otp-btn').disabled = false;
-                    if(window.recaptchaVerifier) window.recaptchaVerifier.render().then(wid => grecaptcha.reset(wid));
-                });
+            // Simulate OTP network request
+            setTimeout(() => {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('otp-section').classList.remove('hidden');
+                document.getElementById('send-otp-btn').innerText = "Send Secure OTP";
+                document.getElementById('send-otp-btn').disabled = false;
+            }, 800);
         };
 
         window.verifyOTP = function() {
@@ -273,27 +245,24 @@
             document.getElementById('verify-otp-btn').innerText = "Verifying...";
             document.getElementById('verify-otp-btn').disabled = true;
 
-            window.confirmationResult.confirm(code).then((result) => {
-                const busId = document.getElementById('bus-number').value.trim();
-                const driverPhone = document.getElementById('phone-number').value.trim();
-                fetch('/api/driver/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bus_id: busId, driver_phone: driverPhone })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) window.location.href = "/driver_dashboard";
-                    else throw new Error(data.message);
-                })
-                .catch(err => {
-                    errorDiv.innerText = err.message || "Server sync failed.";
-                    errorDiv.style.display = 'block';
-                    document.getElementById('verify-otp-btn').innerText = "Confirm Identity";
-                    document.getElementById('verify-otp-btn').disabled = false;
-                });
-            }).catch((error) => {
-                errorDiv.innerText = "Incorrect OTP code.";
+            const busId = document.getElementById('bus-number').value.trim();
+            const driverPhone = document.getElementById('phone-number').value.trim();
+            
+            fetch('/api/driver/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bus_id: busId, driver_phone: driverPhone })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = "/driver_dashboard";
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(err => {
+                errorDiv.innerText = err.message || "Server sync failed.";
                 errorDiv.style.display = 'block';
                 document.getElementById('verify-otp-btn').innerText = "Confirm Identity";
                 document.getElementById('verify-otp-btn').disabled = false;
