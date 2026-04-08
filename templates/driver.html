@@ -205,8 +205,25 @@
         <div class="footer-link">Wrong number? <a href="/driver">Restart Login</a></div>
     </div>
 
-    <!-- MOCK OTP INTEGRATION -->
     <script>
+        let earlyWatchId = null;
+        let wakeLock = null;
+        let earlyLocation = null;
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Screen Wake Lock is active');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Screen Wake Lock was released');
+                    });
+                }
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+
         window.sendOTP = function() {
             const phoneInputRaw = document.getElementById("phone-number").value.trim();
             const busIdInput = document.getElementById("bus-number").value;
@@ -221,6 +238,16 @@
 
             document.getElementById('send-otp-btn').innerText = "Broadcasting...";
             document.getElementById('send-otp-btn').disabled = true;
+
+            // Immediately request screen wake lock and start GPS to avoid delay later
+            requestWakeLock();
+            if ("geolocation" in navigator) {
+                earlyWatchId = navigator.geolocation.watchPosition(
+                    pos => { earlyLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+                    err => console.error("Early GPS Error:", err),
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+                );
+            }
 
             // Simulate OTP network request
             setTimeout(() => {
@@ -256,6 +283,15 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    if (earlyLocation) {
+                        try {
+                            fetch('/api/location/update', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ latitude: earlyLocation.lat, longitude: earlyLocation.lng })
+                            });
+                        } catch(e){}
+                    }
                     window.location.href = "/driver_dashboard";
                 } else {
                     throw new Error(data.message);

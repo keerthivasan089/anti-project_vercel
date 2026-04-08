@@ -9,6 +9,7 @@
     
     <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         :root {
@@ -208,6 +209,8 @@
     <div class="sidebar">
         <h2><i class='bx bxs-bus'></i> Admin Center</h2>
         <a href="#" class="nav-item active"><i class='bx bxs-dashboard'></i> Overview</a>
+        <a href="#analytics-section" class="nav-item"><i class='bx bx-bar-chart-alt-2'></i> Analytics</a>
+        <a href="#emergency-section" class="nav-item" style="color:var(--danger);"><i class='bx bx-error-circle'></i> Emergency Center <span id="nav-emergency-badge" style="background:var(--danger);color:white;border-radius:10px;padding:2px 6px;font-size:0.7rem;display:none;">0</span></a>
         <a href="#map-section" class="nav-item"><i class='bx bx-map-alt'></i> Live Tracking</a>
         <a href="#pending" class="nav-item"><i class='bx bx-user-plus'></i> New Approvals</a>
         <a href="#students" class="nav-item"><i class='bx bx-group'></i> Student Fleet</a>
@@ -261,6 +264,59 @@
                     <p>Present Today</p>
                 </div>
             </div>
+        </div>
+
+        <!-- Mass Emergency Alert Banner -->
+        <div id="mass-alert-banner" style="display:none; background:linear-gradient(135deg, #ef4444, #dc2626); color:white; padding:15px 20px; border-radius:14px; margin-bottom:20px; display:flex; align-items:center; gap:15px; box-shadow:0 10px 25px rgba(239,68,68,0.4); animation:bounceIn 0.5s ease;">
+            <i class='bx bxs-alarm-exclamation' style="font-size:2rem; animation:pulse-glow 1.5s infinite;"></i>
+            <div>
+                <h3 style="font-size:1.1rem;font-weight:800;margin-bottom:2px;">⚠️ CRITICAL MASS ALERT</h3>
+                <p id="mass-alert-text" style="font-size:0.9rem;font-weight:600;">Multiple students reporting emergency on Bus #!</p>
+            </div>
+            <button onclick="document.getElementById('mass-alert-banner').style.display='none'" style="margin-left:auto;background:rgba(255,255,255,0.2);border:none;color:white;padding:8px;border-radius:8px;cursor:pointer;">Dismiss</button>
+        </div>
+        <style>@keyframes bounceIn{0%{transform:scale(0.9);opacity:0;}100%{transform:scale(1);opacity:1;}} @keyframes pulse-glow{0%,100%{transform:scale(1);}50%{transform:scale(1.1);text-shadow:0 0 10px white;}}</style>
+
+        <!-- Analytics Section -->
+        <div class="section-header" id="analytics-section">
+            <h2>Campus Analytics & Performance</h2>
+            <button class="portal-btn" onclick="fetchAnalytics()"><i class='bx bx-refresh'></i> Refresh Data</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom:30px;">
+            <div class="map-card" style="margin-bottom:0;">
+                <h3 style="font-size:1rem; color:var(--text); margin-bottom:10px;">Bus Attendance (Today)</h3>
+                <canvas id="barChart" height="200"></canvas>
+            </div>
+            <div class="map-card" style="margin-bottom:0;">
+                <h3 style="font-size:1rem; color:var(--text); margin-bottom:10px;">System Health</h3>
+                <canvas id="doughnutChart" height="200"></canvas>
+            </div>
+        </div>
+        <div class="map-card" style="margin-bottom:30px;">
+            <h3 style="font-size:1rem; color:var(--text); margin-bottom:10px;">7-Day Attendance Trend</h3>
+            <canvas id="lineChart" height="80"></canvas>
+        </div>
+
+        <!-- Emergency Center -->
+        <div class="section-header" id="emergency-section">
+            <h2 style="color:var(--danger);display:flex;align-items:center;gap:8px;"><i class='bx bxs-error-circle'></i> Emergency Command Center</h2>
+        </div>
+        <div class="table-container" style="border:2px solid #fee2e2;">
+            <table>
+                <thead style="background:#fef2f2;">
+                    <tr>
+                        <th style="color:#b91c1c;">Alert ID</th>
+                        <th style="color:#b91c1c;">Source</th>
+                        <th style="color:#b91c1c;">Problem Type</th>
+                        <th style="color:#b91c1c;">Description/Voice</th>
+                        <th style="color:#b91c1c;">Upvotes</th>
+                        <th style="color:#b91c1c;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="emergency-table-body">
+                    <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--success);font-weight:600;"><i class='bx bx-check-shield'></i> No active emergencies</td></tr>
+                </tbody>
+            </table>
         </div>
 
         <!-- Real-Time Map -->
@@ -884,7 +940,151 @@
                 if (result.success) location.reload();
                 else alert('Failed to save attender. Ensure phone is unique.');
             } catch(e) { alert("Network error: " + e.message); }
+        }        // ===================== ANALYTICS AND EMERGENCIES =====================
+        let barChartInstance = null;
+        let doughnutChartInstance = null;
+        let lineChartInstance = null;
+
+        async function fetchAnalytics() {
+            try {
+                const res = await fetch('/api/analytics/summary');
+                const data = await res.json();
+                if(!data.success) return;
+                
+                // Process Bar Chart (Per Bus)
+                const busLabels = data.per_bus.map(b => b.busnumber);
+                const presentData = data.per_bus.map(b => parseInt(b.present));
+                const onLeaveData = data.per_bus.map(b => parseInt(b.on_leave));
+                const absentData = data.per_bus.map(b => parseInt(b.absent));
+
+                const barCtx = document.getElementById('barChart').getContext('2d');
+                if(barChartInstance) barChartInstance.destroy();
+                barChartInstance = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: busLabels,
+                        datasets: [
+                            { label: 'Present', data: presentData, backgroundColor: '#10b981' },
+                            { label: 'On Leave', data: onLeaveData, backgroundColor: '#f59e0b' },
+                            { label: 'Absent/Unknown', data: absentData, backgroundColor: '#ef4444' }
+                        ]
+                    },
+                    options: { responsive: true, stacked: true }
+                });
+
+                // Process Doughnut Chart
+                let t_pres = parseInt(data.overall.present || 0);
+                let t_abs = parseInt(data.overall.total_students || 0) - t_pres;
+                const dctx = document.getElementById('doughnutChart').getContext('2d');
+                if(doughnutChartInstance) doughnutChartInstance.destroy();
+                doughnutChartInstance = new Chart(dctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Present', 'Absent/Leave'],
+                        datasets: [{ data: [t_pres, Math.max(0, t_abs)], backgroundColor: ['#10b981', '#ef4444'] }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+
+                // Process Line Chart (Trend)
+                const trendLabels = data.trend.map(t => new Date(t.attendance_date).toLocaleDateString());
+                const trendPres = data.trend.map(t => t.present);
+                const lctx = document.getElementById('lineChart').getContext('2d');
+                if(lineChartInstance) lineChartInstance.destroy();
+                lineChartInstance = new Chart(lctx, {
+                    type: 'line',
+                    data: {
+                        labels: trendLabels,
+                        datasets: [{ label: 'Present Trend', data: trendPres, borderColor: '#3b82f6', tension: 0.3, fill: true, backgroundColor: 'rgba(59, 130, 246, 0.1)' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+
+            } catch(e) {}
         }
+
+        async function fetchEmergencies() {
+            try {
+                const res = await fetch('/api/emergency/list');
+                const data = await res.json();
+                if(!data.success) return;
+
+                const tbody = document.getElementById('emergency-table-body');
+                const badge = document.getElementById('nav-emergency-badge');
+                
+                if (data.alerts && data.alerts.length > 0) {
+                    badge.style.display = 'inline-block';
+                    badge.textContent = data.alerts.length;
+                    
+                    let rows = '';
+                    data.alerts.forEach(a => {
+                        let playBtn = '';
+                        if (a.voice_note_type) {
+                            playBtn = `<button class="action-btn" onclick="playVoice(${a.id})" title="Play Voice Note"><i class='bx bx-play-circle'></i></button>`;
+                        }
+                        
+                        let badgeClass = 'bg-pending';
+                        if(a.upvote_count >= 5) badgeClass = 'bg-pending'; // could style diff
+                        
+                        rows += `
+                        <tr>
+                            <td>#${a.id}</td>
+                            <td><b>${a.busnumber}</b><br><span style="font-size:0.75rem;color:#6b7280;">by ${a.reporter_name} (${a.reporter_type})</span></td>
+                            <td><span class="status-badge ${a.upvote_count >= 5 ? 'bg-pending' : ''}" style="${a.upvote_count >= 5 ? 'background:#fee2e2;color:#b91c1c;' : ''}">${a.problem_type}</span></td>
+                            <td>${a.description || '<i>No text description</i>'}</td>
+                            <td style="font-weight:700; color:${a.upvote_count >= 5 ? '#ef4444' : '#1f2937'};">${a.upvote_count}</td>
+                            <td>
+                                ${playBtn}
+                                <button class="action-btn btn-approve" onclick="resolveEmergency(${a.id})" title="Mark Resolved"><i class='bx bx-check-circle'></i></button>
+                            </td>
+                        </tr>
+                        `;
+                    });
+                    tbody.innerHTML = rows;
+                } else {
+                    badge.style.display = 'none';
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--success);font-weight:600;"><i class='bx bx-check-shield'></i> No active emergencies</td></tr>`;
+                }
+
+                // Handle Mass Alerts Banner
+                const banner = document.getElementById('mass-alert-banner');
+                if (data.mass_alerts && data.mass_alerts.length > 0) {
+                    const massNames = data.mass_alerts.map(a => a.busnumber).join(', ');
+                    document.getElementById('mass-alert-text').textContent = `Multiple students (5+) reporting emergency on Bus: ${massNames}!`;
+                    banner.style.display = 'flex';
+                } else {
+                    banner.style.display = 'none';
+                }
+            } catch(e) {}
+        }
+
+        async function playVoice(id) {
+            const res = await fetch(`/api/emergency/voice/${id}`);
+            const data = await res.json();
+            if(data.success && data.voice_note_b64) {
+                const audio = new Audio(`data:${data.voice_note_type};base64,${data.voice_note_b64}`);
+                audio.play();
+            } else {
+                alert("Could not load voice note.");
+            }
+        }
+
+        async function resolveEmergency(id) {
+            if(!confirm("Mark this emergency as resolved?")) return;
+            try {
+                const res = await fetch(`/api/emergency/resolve/${id}`, { method: 'POST' });
+                const data = await res.json();
+                if(data.success) fetchEmergencies();
+            } catch(e){}
+        }
+
+        // Initialize features
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAnalytics();
+            fetchEmergencies();
+            setInterval(fetchEmergencies, 10000);
+        });
+
     </script>
 </body>
 </html>

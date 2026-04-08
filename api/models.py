@@ -606,3 +606,426 @@ def get_student_by_auth(rollnumber, dob):
     finally:
         cursor.close()
         conn.close()
+
+# =============================================
+# LEAVE MODEL
+# =============================================
+class LeaveModel:
+    @staticmethod
+    def request_leave(student_id, bus_id, reason=None):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("""
+                INSERT INTO leave_requests (student_id, bus_id, leave_date, reason)
+                VALUES (%s, %s, CURRENT_DATE, %s)
+                ON CONFLICT (student_id, leave_date) DO UPDATE SET reason = EXCLUDED.reason
+            """, (student_id, bus_id, reason))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Leave Request Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def get_today_leave(student_id):
+        conn = get_db_connection()
+        if not conn: return None
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT * FROM leave_requests
+            WHERE student_id = %s AND leave_date = CURRENT_DATE
+        """, (student_id,))
+        result = cursor.fetchone()
+        cursor.close(); conn.close()
+        return result
+
+    @staticmethod
+    def get_bus_leaves_today(bus_id):
+        """Get all students on leave today for a given bus (for attender dashboard)."""
+        conn = get_db_connection()
+        if not conn: return []
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT l.student_id, s.studentname, s.rollnumber, l.reason
+            FROM leave_requests l
+            JOIN students s ON l.student_id = s.id
+            WHERE l.bus_id = %s AND l.leave_date = CURRENT_DATE
+        """, (bus_id,))
+        results = cursor.fetchall()
+        cursor.close(); conn.close()
+        return results
+
+    @staticmethod
+    def cancel_leave(student_id):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("""
+                DELETE FROM leave_requests
+                WHERE student_id = %s AND leave_date = CURRENT_DATE
+            """, (student_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Cancel Leave Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+
+# =============================================
+# EMERGENCY MODEL
+# =============================================
+class EmergencyModel:
+    MASS_ALERT_THRESHOLD = 5  # Number of upvotes to trigger admin mass alert
+
+    @staticmethod
+    def create_alert(bus_id, reporter_type, reporter_id, reporter_name,
+                     problem_type, description, voice_note_b64=None, voice_note_type='audio/webm'):
+        conn = get_db_connection()
+        if not conn: return None
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("""
+                INSERT INTO emergency_alerts
+                    (bus_id, reporter_type, reporter_id, reporter_name,
+                     problem_type, description, voice_note_b64, voice_note_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (bus_id, reporter_type, reporter_id, reporter_name,
+                  problem_type, description, voice_note_b64, voice_note_type))
+            row = cursor.fetchone()
+            conn.commit()
+            return row['id'] if row else None
+        except Exception as e:
+            print(f"❌ Emergency Create Error: {e}")
+            return None
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def upvote(alert_id, student_id):
+        """Returns (new_count, is_mass_alert)."""
+        conn = get_db_connection()
+        if not conn: return 0, False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            # Try to insert upvote (unique constraint prevents duplicates)
+            cursor.execute("""
+                INSERT INTO emergency_upvotes (alert_id, student_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+            """, (alert_id, student_id))
+            # Increment count on the alert
+            cursor.execute("""
+                UPDATE emergency_alerts
+                SET upvote_count = upvote_count + 1
+                WHERE id = %s
+                RETURNING upvote_count
+            """, (alert_id,))
+            row = cursor.fetchone()
+            conn.commit()
+            count = row['upvote_count'] if row else 0
+            return count, count >= EmergencyModel.MASS_ALERT_THRESHOLD
+        except Exception as e:
+            print(f"❌ Upvote Error: {e}")
+            return 0, False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def get_active_alerts(bus_id=None):
+        conn = get_db_connection()
+        if not conn: return []
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if bus_id:
+            cursor.execute("""
+                SELECT ea.*, b.busnumber
+                FROM emergency_alerts ea
+                JOIN buses b ON ea.bus_id = b.id
+                WHERE ea.status = 'active' AND ea.bus_id = %s
+                ORDER BY ea.created_at DESC
+            """, (bus_id,))
+        else:
+            cursor.execute("""
+                SELECT ea.*, b.busnumber
+                FROM emergency_alerts ea
+                JOIN buses b ON ea.bus_id = b.id
+                WHERE ea.status = 'active'
+                ORDER BY ea.upvote_count DESC, ea.created_at DESC
+            """)
+        results = cursor.fetchall()
+        for r in results:
+            if r.get('created_at'):
+                r['created_at'] = r['created_at'].isoformat()
+            if r.get('resolved_at'):
+                r['resolved_at'] = r['resolved_at'].isoformat()
+            # Don't return voice note b64 in list view (too heavy)
+            r.pop('voice_note_b64', None)
+        cursor.close(); conn.close()
+        return results
+
+    @staticmethod
+    def get_alert_voice(alert_id):
+        conn = get_db_connection()
+        if not conn: return None
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT voice_note_b64, voice_note_type FROM emergency_alerts WHERE id = %s
+        """, (alert_id,))
+        result = cursor.fetchone()
+        cursor.close(); conn.close()
+        return result
+
+    @staticmethod
+    def resolve(alert_id):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("""
+                UPDATE emergency_alerts
+                SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (alert_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            print(f"❌ Resolve Alert Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def has_upvoted(alert_id, student_id):
+        conn = get_db_connection()
+        if not conn: return False
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT id FROM emergency_upvotes WHERE alert_id = %s AND student_id = %s
+        """, (alert_id, student_id))
+        result = cursor.fetchone()
+        cursor.close(); conn.close()
+        return result is not None
+
+    @staticmethod
+    def get_mass_alerts():
+        """Get alerts that have crossed the threshold count (for admin banner)."""
+        conn = get_db_connection()
+        if not conn: return []
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT ea.id, ea.bus_id, ea.upvote_count, ea.problem_type, b.busnumber
+            FROM emergency_alerts ea
+            JOIN buses b ON ea.bus_id = b.id
+            WHERE ea.status = 'active' AND ea.upvote_count >= %s
+            ORDER BY ea.upvote_count DESC
+        """, (EmergencyModel.MASS_ALERT_THRESHOLD,))
+        results = cursor.fetchall()
+        cursor.close(); conn.close()
+        return results
+
+
+# =============================================
+# ANALYTICS MODEL
+# =============================================
+class AnalyticsModel:
+    @staticmethod
+    def get_daily_summary():
+        """Returns Chart.js-ready data for admin analytics."""
+        conn = get_db_connection()
+        if not conn: return {}
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Per-bus attendance today
+        cursor.execute("""
+            SELECT b.busnumber,
+                   COUNT(s.id) as total,
+                   COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present,
+                   COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent,
+                   COUNT(CASE WHEN lr.id IS NOT NULL THEN 1 END) as on_leave
+            FROM buses b
+            LEFT JOIN students s ON s.assignedbus = b.id
+            LEFT JOIN attendance a ON a.student_id = s.id AND a.attendance_date = CURRENT_DATE
+            LEFT JOIN leave_requests lr ON lr.student_id = s.id AND lr.leave_date = CURRENT_DATE
+            GROUP BY b.id, b.busnumber
+            ORDER BY b.id
+        """)
+        per_bus = cursor.fetchall()
+
+        # 7-day trend
+        cursor.execute("""
+            SELECT attendance_date,
+                   COUNT(CASE WHEN status = 'present' THEN 1 END) as present,
+                   COUNT(CASE WHEN status = 'absent' THEN 1 END) as absent
+            FROM attendance
+            WHERE attendance_date >= CURRENT_DATE - INTERVAL '6 days'
+            GROUP BY attendance_date
+            ORDER BY attendance_date
+        """)
+        trend = cursor.fetchall()
+        for t in trend:
+            if t.get('attendance_date'):
+                t['attendance_date'] = t['attendance_date'].isoformat()
+
+        # Overall today
+        cursor.execute("""
+            SELECT
+                (SELECT COUNT(*) FROM students) as total_students,
+                COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present,
+                COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent,
+                (SELECT COUNT(*) FROM emergency_alerts WHERE status = 'active') as active_alerts,
+                (SELECT COUNT(*) FROM leave_requests WHERE leave_date = CURRENT_DATE) as on_leave,
+                (SELECT COUNT(*) FROM buses WHERE isActive = TRUE) as active_buses
+            FROM attendance a
+            WHERE a.attendance_date = CURRENT_DATE
+        """)
+        overall = cursor.fetchone()
+
+        cursor.close(); conn.close()
+        return {
+            'per_bus': per_bus,
+            'trend': trend,
+            'overall': overall or {}
+        }
+
+
+# =============================================
+# NOTIFICATION MODEL (Twilio-ready)
+# =============================================
+class NotificationModel:
+    @staticmethod
+    def send_sms(to_phone, message, msg_type='general'):
+        """Send SMS via Twilio. Falls back to logging if credentials not set."""
+        import os, requests as req
+        account_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
+        auth_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
+        from_number = os.environ.get('TWILIO_FROM_NUMBER', '')
+
+        # Log to DB regardless
+        NotificationModel._log(to_phone, msg_type, message, 'pending')
+
+        if not account_sid or not auth_token or not from_number:
+            print(f"📵 Twilio not configured. SMS would be: [{to_phone}] {message}")
+            NotificationModel._update_log_status(to_phone, message, 'skipped_no_credentials')
+            return False
+
+        try:
+            url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+            r = req.post(url, auth=(account_sid, auth_token),
+                         data={'From': from_number, 'To': f'+91{to_phone}', 'Body': message})
+            if r.status_code == 201:
+                NotificationModel._update_log_status(to_phone, message, 'sent')
+                return True
+            else:
+                print(f"❌ Twilio Error: {r.text}")
+                return False
+        except Exception as e:
+            print(f"❌ SMS Error: {e}")
+            return False
+
+    @staticmethod
+    def _log(phone, msg_type, message, status):
+        conn = get_db_connection()
+        if not conn: return
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO notification_log (recipient_phone, message_type, message, status)
+                VALUES (%s, %s, %s, %s)
+            """, (phone, msg_type, message, status))
+            conn.commit()
+        except Exception:
+            pass
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def _update_log_status(phone, message, status):
+        conn = get_db_connection()
+        if not conn: return
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE notification_log SET status = %s
+                WHERE recipient_phone = %s AND message = %s AND status = 'pending'
+                ORDER BY sent_at DESC LIMIT 1
+            """, (status, phone, message))
+            conn.commit()
+        except Exception:
+            pass
+        finally:
+            if conn: cursor.close(); conn.close()
+
+
+# =============================================
+# TRIP LOG MODEL (Geofencing)
+# =============================================
+class TripLogModel:
+    COLLEGE_LAT = 12.717849
+    COLLEGE_LNG = 77.869604
+    GEOFENCE_RADIUS_METERS = 500
+
+    @staticmethod
+    def start_trip(bus_id):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("""
+                INSERT INTO trip_log (bus_id, departure_at, status)
+                VALUES (%s, CURRENT_TIMESTAMP, 'in_progress')
+                ON CONFLICT (bus_id, trip_date) DO UPDATE
+                    SET departure_at = CURRENT_TIMESTAMP, status = 'in_progress'
+            """, (bus_id,))
+            # Also mark bus as active
+            cursor.execute("UPDATE buses SET isActive = TRUE WHERE id = %s", (bus_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Trip Start Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def complete_trip(bus_id):
+        conn = get_db_connection()
+        if not conn: return False
+        try:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("""
+                UPDATE trip_log
+                SET status = 'completed', arrival_at = CURRENT_TIMESTAMP
+                WHERE bus_id = %s AND trip_date = CURRENT_DATE
+            """, (bus_id,))
+            # Optionally mark bus inactive after arrival
+            # cursor.execute("UPDATE buses SET isActive = FALSE WHERE id = %s", (bus_id,))
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Trip Complete Error: {e}")
+            return False
+        finally:
+            if conn: cursor.close(); conn.close()
+
+    @staticmethod
+    def get_today_status(bus_id):
+        conn = get_db_connection()
+        if not conn: return None
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor.execute("""
+            SELECT * FROM trip_log WHERE bus_id = %s AND trip_date = CURRENT_DATE
+        """, (bus_id,))
+        result = cursor.fetchone()
+        if result:
+            for k in ['departure_at', 'arrival_at']:
+                if result.get(k):
+                    result[k] = result[k].isoformat()
+        cursor.close(); conn.close()
+        return result

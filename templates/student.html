@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Campus Ride | Student Portal</title>
     
-    <!-- Leaflet & Icons -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,16 +19,13 @@
             --glass: rgba(255, 255, 255, 0.85);
             --text-dark: #1a202c;
             --text-muted: #64748b;
+            --danger: #ef4444;
+            --warning: #f59e0b;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
-        body {
-            background-color: var(--bg-body);
-            overflow: hidden;
-            display: flex;
-            height: 100vh;
-        }
+        body { background-color: var(--bg-body); overflow: hidden; display: flex; height: 100vh; }
 
         /* --- SIDEBAR --- */
         .sidebar {
@@ -41,262 +37,149 @@
             flex-direction: column;
             z-index: 100;
             box-shadow: 10px 0 30px rgba(0,0,0,0.02);
-            transition: transform 0.3s ease;
         }
 
-        .sidebar-header {
-            padding: 24px;
-            border-bottom: 1px solid #f1f5f9;
+        .sidebar-header { padding: 20px 24px; border-bottom: 1px solid #f1f5f9; }
+
+        .brand { display: flex; align-items: center; gap: 12px; color: var(--primary); font-weight: 800; font-size: 1.3rem; letter-spacing: -0.5px; margin-bottom: 14px; }
+
+        .user-pill { background: #f0fdf4; padding: 10px 12px; border-radius: 14px; display: flex; align-items: center; gap: 12px; border: 1px solid #dcfce7; }
+        .user-icon { width: 36px; height: 36px; background: var(--primary); color: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .user-info h4 { font-size: 0.88rem; color: var(--text-dark); }
+        .user-info p { font-size: 0.72rem; color: var(--text-muted); }
+
+        .sidebar-content { padding: 18px 24px; flex: 1; overflow-y: auto; }
+
+        .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; color: var(--text-muted); margin-bottom: 12px; display: block; }
+
+        /* Bus Card */
+        .bus-card { background: linear-gradient(135deg, white 0%, #f9fafb 100%); border: 1px solid #f1f5f9; border-radius: 18px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .bus-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+        .bus-tag { background: var(--primary); color: white; padding: 3px 10px; border-radius: 8px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+        .eta-badge { font-size: 1rem; font-weight: 800; color: var(--primary); }
+        .eta-via { font-size: 0.65rem; color: var(--text-muted); text-align: right; }
+        .bus-detail { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.82rem; font-weight: 600; color: var(--text-dark); }
+        .bus-detail i { color: var(--primary); font-size: 16px; }
+        .no-bus { text-align: center; padding: 24px 10px; color: var(--text-muted); font-size: 0.82rem; }
+
+        /* Leave Card */
+        .leave-card {
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 18px;
+            border: 2px solid #fef3c7;
+            background: #fffbeb;
         }
+        .leave-card.active { border-color: #fca5a5; background: #fef2f2; }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--primary);
-            font-weight: 800;
-            font-size: 1.4rem;
-            letter-spacing: -0.5px;
-            margin-bottom: 20px;
-        }
+        .leave-header { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; color: #92400e; margin-bottom: 8px; }
+        .leave-header.active { color: #b91c1c; }
 
-        .user-pill {
-            background: #f0fdf4;
-            padding: 12px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border: 1px solid #dcfce7;
-        }
+        .leave-actions { display: flex; gap: 8px; }
+        .leave-btn { flex: 1; padding: 10px 8px; border: none; border-radius: 10px; font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: 0.2s; }
+        .leave-btn-request { background: #fef3c7; color: #92400e; border: 1.5px solid #fcd34d; }
+        .leave-btn-request:hover { background: #fcd34d; }
+        .leave-btn-cancel { background: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; }
+        .leave-btn-cancel:hover { background: #fca5a5; }
 
-        .user-icon {
-            width: 40px; height: 40px;
-            background: var(--primary);
-            color: white;
-            border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 20px;
-        }
-
-        .user-info h4 { font-size: 0.9rem; color: var(--text-dark); }
-        .user-info p { font-size: 0.75rem; color: var(--text-muted); }
-
-        .sidebar-content {
-            padding: 24px;
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .section-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 16px;
-            display: block;
-        }
-
-        /* --- BUS INFO CARD --- */
-        .bus-card {
-            background: linear-gradient(135deg, white 0%, #f9fafb 100%);
-            border: 1px solid #f1f5f9;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        }
-
-        .bus-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
-        }
-
-        .bus-tag {
-            background: var(--primary);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .eta-badge {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--primary);
-        }
-
-        .bus-detail {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-
-        .bus-detail i { color: var(--primary); font-size: 18px; }
-
-        .no-bus {
-            text-align: center;
-            padding: 30px 10px;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-        }
-
-        /* --- CONTROLS --- */
-        .control-group { margin-bottom: 20px; }
-        
-        select {
-            width: 100%;
-            padding: 12px 16px;
-            border-radius: 12px;
-            border: 1.5px solid #e2e8f0;
-            background: white;
-            font-size: 0.9rem;
-            font-weight: 600;
-            outline: none;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
+        /* Controls */
+        .control-group { margin-bottom: 16px; }
+        select { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: white; font-size: 0.88rem; font-weight: 600; outline: none; cursor: pointer; transition: 0.2s; }
         select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px #f0fdf4; }
 
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 0.95rem;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            transition: 0.2s;
-            box-shadow: 0 4px 0 var(--primary-dark);
-        }
-
+        .btn { width: 100%; padding: 13px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; box-shadow: 0 4px 0 var(--primary-dark); }
         .btn:hover { background: var(--primary-dark); }
         .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--primary-dark); }
 
-        .sidebar-footer {
-            padding: 24px;
-            border-top: 1px solid #f1f5f9;
-        }
-
-        .logout-btn {
-            color: #ef4444;
-            display: flex; align-items: center; gap: 8px;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 0.9rem;
-            transition: 0.2s;
-        }
+        .sidebar-footer { padding: 18px 24px; border-top: 1px solid #f1f5f9; }
+        .logout-btn { color: #ef4444; display: flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; font-size: 0.88rem; transition: 0.2s; }
         .logout-btn:hover { opacity: 0.8; }
 
-        /* --- MAIN MAP --- */
-        .main-content {
-            flex: 1;
-            position: relative;
-        }
+        /* ETA Results */
+        .eta-result-item { background: white; padding: 10px 12px; border-radius: 10px; margin-bottom: 6px; border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        .eta-road-badge { font-size: 0.6rem; background: #dbeafe; color: #1e40af; border-radius: 4px; padding: 1px 5px; font-weight: 700; }
 
-        #map {
-            width: 100%;
-            height: 100%;
-        }
+        /* MAP */
+        .main-content { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
 
-        /* --- MAP OVERLAYS --- */
-        .map-badge {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: var(--glass);
-            backdrop-filter: blur(10px);
-            padding: 10px 20px;
-            border-radius: 40px;
-            font-weight: 700;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border: 1px solid rgba(255,255,255,0.4);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
+        .map-badge { position: absolute; top: 20px; right: 20px; z-index: 1000; background: var(--glass); backdrop-filter: blur(10px); padding: 10px 18px; border-radius: 40px; font-weight: 700; font-size: 0.82rem; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
 
-        .status-dot {
-            width: 8px; height: 8px;
-            background: #22c55e;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
+        .status-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse-dot 2s infinite; }
+        @keyframes pulse-dot { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34,197,94,0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34,197,94,0); } 100% { transform: scale(0.95); } }
 
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
+        .eta-notification { position: absolute; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px); background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 12px 22px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 25px rgba(245,158,11,0.4); z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+        .eta-notification.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+        .eta-notification i { font-size: 22px; animation: ring 2s infinite; }
+        @keyframes ring { 0%,50%,100%{transform:rotate(0)} 10%{transform:rotate(15deg)} 20%{transform:rotate(-10deg)} 30%{transform:rotate(5deg)} 40%{transform:rotate(-5deg)} }
 
-        .eta-notification {
-            position: absolute;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-20px);
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+        /* Active emergency banner on map */
+        .emergency-banner { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1001; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 10px 20px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 10px; box-shadow: 0 6px 20px rgba(239,68,68,0.4); cursor: pointer; animation: sos-pulse 1.5s infinite ease-in-out; display: none; }
+        @keyframes sos-pulse { 0%,100%{box-shadow:0 6px 20px rgba(239,68,68,0.4)} 50%{box-shadow:0 6px 30px rgba(239,68,68,0.8)} }
 
-        .eta-notification.show {
-            opacity: 1;
-            visibility: visible;
-            transform: translateX(-50%) translateY(0);
-        }
+        /* FAB EMERGENCY BUTTON */
+        .sos-fab { position: absolute; bottom: 30px; right: 20px; z-index: 1002; width: 56px; height: 56px; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; box-shadow: 0 4px 20px rgba(239,68,68,0.5); transition: 0.2s; animation: sos-fab-pulse 2.5s infinite ease-in-out; }
+        .sos-fab:hover { transform: scale(1.1); }
+        @keyframes sos-fab-pulse { 0%,100%{box-shadow:0 4px 20px rgba(239,68,68,0.5)} 50%{box-shadow:0 4px 35px rgba(239,68,68,0.8), 0 0 0 8px rgba(239,68,68,0.15)} }
 
-        .eta-notification i {
-            font-size: 24px;
-            animation: ring 2s infinite;
-        }
+        /* MODALS */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 10000; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-card { background: white; border-radius: 24px; padding: 28px; width: 92%; max-width: 420px; box-shadow: 0 25px 50px rgba(0,0,0,0.25); animation: modal-in 0.3s ease; }
+        @keyframes modal-in { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+        .modal-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+        .modal-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 18px; }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+        .modal-field textarea, .modal-field select, .modal-field input { width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.88rem; font-weight: 500; outline: none; font-family: 'Inter', sans-serif; resize: vertical; }
+        .modal-field textarea:focus, .modal-field select:focus { border-color: var(--primary); }
 
-        @keyframes ring {
-            0% { transform: rotate(0deg); }
-            10% { transform: rotate(15deg); }
-            20% { transform: rotate(-10deg); }
-            30% { transform: rotate(5deg); }
-            40% { transform: rotate(-5deg); }
-            50% { transform: rotate(0deg); }
-            100% { transform: rotate(0deg); }
-        }
+        /* Voice Recorder */
+        .recorder-box { border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px; text-align: center; }
+        .recorder-timer { font-size: 1.4rem; font-weight: 800; color: var(--danger); font-variant-numeric: tabular-nums; display: none; }
+        .recorder-waveform { height: 30px; display: flex; align-items: center; justify-content: center; gap: 3px; margin: 8px 0; display: none; }
+        .recorder-waveform span { display: inline-block; width: 3px; background: var(--danger); border-radius: 2px; animation: wave 0.8s infinite ease-in-out; }
+        .recorder-waveform span:nth-child(1){animation-delay:0s;height:10px}
+        .recorder-waveform span:nth-child(2){animation-delay:0.1s;height:18px}
+        .recorder-waveform span:nth-child(3){animation-delay:0.2s;height:24px}
+        .recorder-waveform span:nth-child(4){animation-delay:0.3s;height:16px}
+        .recorder-waveform span:nth-child(5){animation-delay:0.4s;height:28px}
+        .recorder-waveform span:nth-child(6){animation-delay:0.5s;height:12px}
+        .recorder-waveform span:nth-child(7){animation-delay:0.6s;height:20px}
+        @keyframes wave { 0%,100%{transform:scaleY(0.5)} 50%{transform:scaleY(1.5)} }
 
-        @media (max-width: 900px) {
-            .sidebar {
-                position: absolute;
-                left: 0;
-                transform: translateX(-100%);
-            }
-            .sidebar.active { transform: translateX(0); }
-        }
+        .recorder-controls { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        .rec-btn { padding: 8px 18px; border: none; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
+        .rec-btn-start { background: #fee2e2; color: var(--danger); }
+        .rec-btn-start:hover { background: var(--danger); color: white; }
+        .rec-btn-stop { background: #f3f4f6; color: #374151; display: none; }
+        .rec-btn-stop.show { display: flex; }
+        audio.preview { width: 100%; margin-top: 8px; border-radius: 8px; display: none; }
 
-        /* --- Leaflet Popup Styling --- */
+        .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+        .modal-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+        .modal-btn-primary { background: var(--danger); color: white; }
+        .modal-btn-primary:hover { background: #dc2626; }
+        .modal-btn-secondary { background: #f3f4f6; color: #374151; }
+        .modal-btn-secondary:hover { background: #e5e7eb; }
+
+        /* Leave Modal */
+        .leave-modal-btn { background: #27ae60; color: white; }
+        .leave-modal-btn:hover { background: #1e8449; }
+
+        /* Mass Alert Toast */
+        .mass-alert-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 99999; background: linear-gradient(135deg, #dc2626, #991b1b); color: white; padding: 14px 24px; border-radius: 14px; font-weight: 700; font-size: 0.85rem; box-shadow: 0 8px 30px rgba(220,38,38,0.5); display: none; align-items: center; gap: 10px; animation: toast-in 0.4s ease; }
+        .mass-alert-toast.show { display: flex; }
+        @keyframes toast-in { from{transform:translateX(-50%) translateY(-30px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+
+        /* Leaflet */
         .leaflet-popup-content-wrapper { border-radius: 12px; padding: 5px; }
         .leaflet-popup-tip-container { display: none; }
+
+        @media (max-width: 900px) {
+            .sidebar { position: absolute; left: 0; transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); }
+        }
     </style>
 </head>
 <body>
@@ -308,7 +191,6 @@
                 <i class='bx bxs-bus-school'></i>
                 <span>Campus Ride</span>
             </div>
-            
             <div class="user-pill">
                 <div class="user-icon"><i class='bx bxs-user'></i></div>
                 <div class="user-info">
@@ -320,29 +202,41 @@
 
         <div class="sidebar-content">
             <span class="section-title">My Assigned Travel</span>
-            
+
             {% if assigned_bus %}
             <div class="bus-card">
                 <div class="bus-header">
                     <span class="bus-tag">{{ assigned_bus }}</span>
-                    <span class="eta-badge" id="live-eta">-- min</span>
+                    <div>
+                        <div class="eta-badge" id="live-eta">-- min</div>
+                        <div class="eta-via" id="eta-via-label"></div>
+                    </div>
                 </div>
-                <div class="bus-detail">
-                    <i class='bx bx-user-voice'></i>
-                    <span id="driver-name">Loading driver...</span>
-                </div>
-                <div class="bus-detail">
-                    <i class='bx bx-phone'></i>
-                    <span id="driver-phone">Connecting...</span>
-                </div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 10px;">
-                    <i class='bx bx-time'></i> Real-time updates active
+                <div class="bus-detail"><i class='bx bx-user-voice'></i><span id="driver-name">Loading driver...</span></div>
+                <div class="bus-detail"><i class='bx bx-phone'></i><span id="driver-phone">Connecting...</span></div>
+                <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 8px; display: flex; align-items: center; gap: 4px;">
+                    <i class='bx bx-time'></i> Real-time road tracking active
                 </div>
             </div>
             {% else %}
             <div class="bus-card no-bus">
-                <i class='bx bx-info-circle' style="font-size: 30px; margin-bottom: 10px; display: block;"></i>
+                <i class='bx bx-info-circle' style="font-size: 28px; margin-bottom: 8px; display: block;"></i>
                 No bus assigned yet.<br>Register to join a route.
+            </div>
+            {% endif %}
+
+            <!-- LEAVE REQUEST SECTION -->
+            {% if assigned_bus %}
+            <span class="section-title">Today's Attendance</span>
+            <div class="leave-card" id="leave-card">
+                <div class="leave-header" id="leave-header">
+                    <i class='bx bx-calendar-x'></i> Not on leave today
+                </div>
+                <div class="leave-actions">
+                    <button class="leave-btn leave-btn-request" id="leave-request-btn" onclick="openLeaveModal()">
+                        <i class='bx bx-calendar-minus'></i> Request Leave
+                    </button>
+                </div>
             </div>
             {% endif %}
 
@@ -357,12 +251,11 @@
             </div>
             <button class="btn" onclick="calculateETA()">
                 <i class='bx bx-target-lock'></i>
-                <span>Calculate ETA</span>
+                <span>Calculate ETA (Via Road)</span>
             </button>
 
-            <!-- ETA Results for other stops -->
-            <div id="eta-container" style="margin-top: 20px; display: none;">
-                <h4 id="eta-stop-name" style="font-size: 0.85rem; margin-bottom: 10px;"></h4>
+            <div id="eta-container" style="margin-top: 16px; display: none;">
+                <h4 id="eta-stop-name" style="font-size: 0.82rem; margin-bottom: 8px;"></h4>
                 <div id="eta-results"></div>
             </div>
         </div>
@@ -372,62 +265,161 @@
                 <i class='bx bx-log-out-circle'></i>
                 <span>Sign Out</span>
             </a>
-            <div style="margin-top: 15px;">
-                <a href="/index" style="font-size: 0.8rem; color: var(--text-muted); text-decoration: none;">
+            <div style="margin-top: 12px;">
+                <a href="/index" style="font-size: 0.78rem; color: var(--text-muted); text-decoration: none;">
                     <i class='bx bx-left-arrow-alt'></i> Back to Home
                 </a>
             </div>
         </div>
     </aside>
 
-    <!-- MAIN -->
+    <!-- MAIN MAP -->
     <main class="main-content">
         <div id="map"></div>
+
         <div class="map-badge">
             <div class="status-dot"></div>
-            <span>Live System Tracking</span>
+            <span>Live Tracking</span>
         </div>
+
         <div class="eta-notification" id="eta-banner">
             <i class='bx bxs-bell-ring'></i>
             <div>
-                <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">Bus Arriving Soon</div>
-                <div id="eta-banner-text" style="font-size: 1.1rem;">ETA: 5 minutes</div>
+                <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">Bus Arriving Soon</div>
+                <div id="eta-banner-text" style="font-size: 1rem;">ETA: 5 minutes</div>
             </div>
         </div>
+
+        <!-- Active Emergency Banner -->
+        <div class="emergency-banner" id="active-emergency-banner" onclick="openSOSModal()">
+            <i class='bx bxs-alarm-exclamation'></i>
+            <span id="emergency-banner-text">⚠️ Emergency reported on your bus</span>
+        </div>
+
+        <!-- SOS FAB Button -->
+        <button class="sos-fab" onclick="openSOSModal()" title="Report Emergency">🚨</button>
     </main>
+
+    <!-- ============== LEAVE MODAL ============== -->
+    <div class="modal-overlay" id="leaveModal">
+        <div class="modal-card">
+            <div class="modal-title" style="color: #92400e;">
+                <i class='bx bx-calendar-minus' style="font-size: 1.3rem;"></i> Request Leave Today
+            </div>
+            <p class="modal-sub">Your bus attender will know not to wait at your stop.</p>
+            <div class="modal-field">
+                <label>Reason (optional)</label>
+                <textarea id="leave-reason" placeholder="e.g. Medical appointment, family function..." rows="3"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn leave-modal-btn" onclick="submitLeave()">
+                    <i class='bx bx-check'></i> Confirm Leave
+                </button>
+                <button class="modal-btn modal-btn-secondary" onclick="closeLeaveModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== SOS / EMERGENCY MODAL ============== -->
+    <div class="modal-overlay" id="sosModal">
+        <div class="modal-card">
+            <div class="modal-title" style="color: var(--danger);">🚨 Report Emergency</div>
+            <p class="modal-sub">Alert will be sent to admin and your bus team.</p>
+
+            <div class="modal-field">
+                <label>Describe the issue</label>
+                <textarea id="sos-description" placeholder="What's happening? Be brief and clear..." rows="3"></textarea>
+            </div>
+
+            <div class="modal-field">
+                <label>Voice Note (max 60 seconds)</label>
+                <div class="recorder-box">
+                    <div class="recorder-waveform" id="recorder-waveform">
+                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="recorder-timer" id="recorder-timer">0:00</div>
+                    <div class="recorder-controls">
+                        <button class="rec-btn rec-btn-start" id="rec-start-btn" onclick="startRecording()">
+                            <i class='bx bx-microphone'></i> Record
+                        </button>
+                        <button class="rec-btn rec-btn-stop" id="rec-stop-btn" onclick="stopRecording()">
+                            <i class='bx bx-stop'></i> Stop
+                        </button>
+                    </div>
+                    <audio class="preview" id="audio-preview" controls></audio>
+                </div>
+            </div>
+
+            <div id="sos-error" style="color:var(--danger);font-size:0.8rem;display:none;margin-top:-6px;"></div>
+
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-primary" id="sos-submit-btn" onclick="submitSOS()">
+                    🚨 Send Alert
+                </button>
+                <button class="modal-btn modal-btn-secondary" onclick="closeSOSModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== MASS ALERT TOAST ============== -->
+    <div class="mass-alert-toast" id="mass-alert-toast">
+        <i class='bx bxs-alarm-exclamation' style="font-size:1.2rem;"></i>
+        <span id="mass-alert-text">⚠️ MASS ALERT: Multiple students reporting emergency!</span>
+    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
     <script>
-        let map;
-        let busMarkers = [];
-        const ASSIGNED_BUS_ID = "{{ assigned_bus_id }}";
+        // ===================== CONFIG =====================
+        const ASSIGNED_BUS_ID  = "{{ assigned_bus_id }}";
         const ASSIGNED_STOP_ID = "{{ assigned_stop_id }}";
-        
-        const busColors = ['#27ae60', '#2980b9', '#8e44ad', '#f39c12', '#c0392b', '#16a085'];
+        const busColors = ['#27ae60','#2980b9','#8e44ad','#f39c12','#c0392b','#16a085'];
 
-        document.addEventListener('DOMContentLoaded', function () {
-            // Updated to use a more modern tile layer style
-            map = L.map('map', {
-                zoomControl: false // Cleaner UI
-            }).setView([12.717849, 77.869604], 12);
+        // ===================== MAP INIT =====================
+        let map;
+        const busMarkers   = {};   // id → L.marker
+        const busPositions = {};   // id → { lat, lng } (previous position for smooth animate)
 
+        document.addEventListener('DOMContentLoaded', () => {
+            map = L.map('map', { zoomControl: false }).setView([12.717849, 77.869604], 12);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
-
-            // Add zoom control to bottom right instead
             L.control.zoom({ position: 'bottomright' }).addTo(map);
 
             initTracking();
             setInterval(updateBuses, 5000);
-            
+
             if (ASSIGNED_STOP_ID && ASSIGNED_STOP_ID !== "None") {
-                setInterval(updateAssignedETA, 10000);
+                setInterval(updateAssignedETA, 12000);
                 updateAssignedETA();
             }
+
+            checkLeaveStatus();
+            checkActiveEmergencies();
+            setInterval(checkActiveEmergencies, 15000);
         });
+
+        // ===================== SMOOTH BUS TRACKING (Zomato/Swiggy Style) =====================
+        function smoothMoveTo(marker, targetLat, targetLng, durationMs = 900) {
+            const start = marker.getLatLng();
+            const startLat = start.lat, startLng = start.lng;
+            const deltaLat = targetLat - startLat;
+            const deltaLng = targetLng - startLng;
+            const startTime = performance.now();
+
+            function easeInOut(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+            function frame(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / durationMs, 1);
+                const ease = easeInOut(progress);
+                marker.setLatLng([startLat + deltaLat * ease, startLng + deltaLng * ease]);
+                if (progress < 1) requestAnimationFrame(frame);
+            }
+            requestAnimationFrame(frame);
+        }
 
         function initTracking() {
             updateBuses();
@@ -437,11 +429,8 @@
                     Object.keys(data.routes).forEach((busName, index) => {
                         const busId = (index + 1);
                         if (ASSIGNED_BUS_ID && ASSIGNED_BUS_ID !== "None" && ASSIGNED_BUS_ID !== busId.toString()) return;
-
                         const path = data.routes[busName];
-                        if (path.length >= 2) {
-                            drawRoadRoute(path, busColors[index % busColors.length]);
-                        }
+                        if (path.length >= 2) drawRoadRoute(path, busColors[index % busColors.length]);
                     });
                 });
         }
@@ -450,17 +439,16 @@
             try {
                 const coordsString = points.map(p => `${p[1]},${p[0]}`).join(';');
                 const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
-                const res = await fetch(url);
+                const res  = await fetch(url);
                 const data = await res.json();
-                
                 if (data.routes && data.routes.length > 0) {
-                    const latLngs = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                    L.polyline(latLngs, { color: color, weight: 4, opacity: 0.8, dashArray: '5, 10' }).addTo(map);
+                    const latLngs = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    L.polyline(latLngs, { color, weight: 4, opacity: 0.8, dashArray: '5, 10' }).addTo(map);
                 } else {
-                    L.polyline(points, { color: color, weight: 4, opacity: 0.6, dashArray: '5, 10' }).addTo(map);
+                    L.polyline(points, { color, weight: 4, opacity: 0.6, dashArray: '5, 10' }).addTo(map);
                 }
             } catch(e) {
-                L.polyline(points, { color: color, weight: 4, opacity: 0.6, dashArray: '5, 10' }).addTo(map);
+                L.polyline(points, { color, weight: 4, opacity: 0.6, dashArray: '5, 10' }).addTo(map);
             }
         }
 
@@ -468,34 +456,31 @@
             fetch('/api/buses')
                 .then(r => r.json())
                 .then(data => {
-                    busMarkers.forEach(m => map.removeLayer(m));
-                    busMarkers = [];
-
                     data.buses.forEach(bus => {
-                        const currentBusId = (bus.id || bus.bus_id || "").toString();
-                        if (ASSIGNED_BUS_ID && ASSIGNED_BUS_ID !== "None" && currentBusId !== ASSIGNED_BUS_ID) return;
+                        const busId = (bus.id || "").toString();
+                        if (ASSIGNED_BUS_ID && ASSIGNED_BUS_ID !== "None" && busId !== ASSIGNED_BUS_ID) return;
+                        if (!bus.latitude || !bus.longitude) return;
 
-                        if (bus.latitude && bus.longitude) {
+                        const lat = parseFloat(bus.latitude);
+                        const lng = parseFloat(bus.longitude);
+
+                        if (busMarkers[busId]) {
+                            // SMOOTH ANIMATION (Zomato/Swiggy style)
+                            smoothMoveTo(busMarkers[busId], lat, lng, 900);
+                        } else {
                             const icon = L.divIcon({
-                                className: 'custom-bus-icon',
-                                html: `<div style="background: var(--primary); width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-                                        <i class='bx bxs-bus'></i>
-                                       </div>`,
-                                iconSize: [30, 30],
-                                iconAnchor: [15, 15]
+                                className: '',
+                                html: `<div style="background:#27ae60;width:32px;height:32px;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 4px 10px rgba(0,0,0,0.2);font-size:14px;">🚌</div>`,
+                                iconSize: [32, 32], iconAnchor: [16, 16]
                             });
-
-                            const marker = L.marker([bus.latitude, bus.longitude], { icon: icon })
-                                .bindPopup(`<b>${bus.busnumber}</b><br>Speed: Live`)
+                            busMarkers[busId] = L.marker([lat, lng], { icon })
+                                .bindPopup(`<b>${bus.busnumber}</b><br>🟢 Live`)
                                 .addTo(map);
-                            
-                            busMarkers.push(marker);
+                        }
 
-                            // Update Sidebar Info if it's the assigned bus
-                            if (currentBusId === ASSIGNED_BUS_ID) {
-                                document.getElementById('driver-name').textContent = bus.drivername || "Unknown Driver";
-                                document.getElementById('driver-phone').textContent = bus.driverphone || "No phone listed";
-                            }
+                        if (busId === ASSIGNED_BUS_ID) {
+                            document.getElementById('driver-name').textContent = bus.drivername || "Unknown Driver";
+                            document.getElementById('driver-phone').textContent = bus.driverphone || "No phone";
                         }
                     });
                 });
@@ -503,51 +488,235 @@
 
         async function updateAssignedETA() {
             try {
-                const res = await fetch(`/api/eta?stop_id=${ASSIGNED_STOP_ID}`);
+                const res  = await fetch(`/api/eta?stop_id=${ASSIGNED_STOP_ID}`);
                 const data = await res.json();
                 if (data.success) {
                     const myBusEta = data.etas.find(e => e.bus_id.toString() === ASSIGNED_BUS_ID);
                     if (myBusEta) {
                         document.getElementById('live-eta').textContent = `${myBusEta.etaminutes} min`;
-                        
-                        // Show banner if ETA is <= 10 min
-                        const banner = document.getElementById('eta-banner');
+                        const viaLabel = document.getElementById('eta-via-label');
+                        if (viaLabel) viaLabel.textContent = myBusEta.via_road ? '📍 Via Road' : '📏 Straight Line';
+
+                        const banner     = document.getElementById('eta-banner');
                         const bannerText = document.getElementById('eta-banner-text');
                         if (myBusEta.etaminutes <= 10 && myBusEta.etaminutes > 0) {
-                            bannerText.textContent = `ETA: ${myBusEta.etaminutes} min`;
+                            bannerText.textContent = `ETA: ${myBusEta.etaminutes} min (${myBusEta.distancekm} km)`;
                             banner.classList.add('show');
                         } else {
                             banner.classList.remove('show');
                         }
                     }
                 }
-            } catch (e) { console.error("ETA error", e); }
+            } catch(e) { console.error("ETA error", e); }
         }
 
         function calculateETA() {
             const stopId = document.getElementById('stop-select').value;
             if (!stopId) return;
-
             fetch(`/api/eta?stop_id=${stopId}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
-                        const resDiv = document.getElementById('eta-results');
+                        const resDiv    = document.getElementById('eta-results');
                         const container = document.getElementById('eta-container');
-                        document.getElementById('eta-stop-name').textContent = `Arrivals for ${data.stopname}`;
-                        
+                        document.getElementById('eta-stop-name').textContent = `🗺️ Arrivals for ${data.stopname}`;
                         resDiv.innerHTML = data.etas.map(eta => `
-                            <div style="background: white; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                            <div class="eta-result-item">
                                 <div>
-                                    <h5 style="font-size: 0.8rem;">${eta.busnumber}</h5>
-                                    <span style="font-size: 0.7rem; color: var(--text-muted);">${eta.distancekm} km away</span>
+                                    <h5 style="font-size:0.8rem;">${eta.busnumber} <span class="eta-road-badge">${eta.via_road ? '🛣️ Via Road' : '📏 Straight'}</span></h5>
+                                    <span style="font-size:0.7rem;color:var(--text-muted);">${eta.distancekm} km away</span>
                                 </div>
-                                <span style="font-weight: 800; color: var(--primary);">${eta.etaminutes} min</span>
+                                <span style="font-weight:800;color:var(--primary);font-size:0.95rem;">${eta.etaminutes} min</span>
                             </div>
                         `).join('');
                         container.style.display = 'block';
                     }
                 });
+        }
+
+        // ===================== LEAVE =====================
+        function checkLeaveStatus() {
+            fetch('/api/student/leave_status')
+            .then(r => r.json())
+            .then(data => {
+                const card   = document.getElementById('leave-card');
+                const header = document.getElementById('leave-header');
+                const btn    = document.getElementById('leave-request-btn');
+                if (!card) return;
+                if (data.on_leave) {
+                    card.classList.add('active');
+                    header.className = 'leave-header active';
+                    header.innerHTML = "<i class='bx bx-calendar-check'></i> You are on leave today";
+                    btn.className = 'leave-btn leave-btn-cancel';
+                    btn.innerHTML = "<i class='bx bx-x'></i> Cancel Leave";
+                    btn.onclick = cancelLeave;
+                } else {
+                    card.classList.remove('active');
+                    header.className = 'leave-header';
+                    header.innerHTML = "<i class='bx bx-calendar-x'></i> Not on leave today";
+                    btn.className = 'leave-btn leave-btn-request';
+                    btn.innerHTML = "<i class='bx bx-calendar-minus'></i> Request Leave";
+                    btn.onclick = openLeaveModal;
+                }
+            });
+        }
+
+        function openLeaveModal()  { document.getElementById('leaveModal').classList.add('show'); }
+        function closeLeaveModal() { document.getElementById('leaveModal').classList.remove('show'); }
+
+        async function submitLeave() {
+            const reason = document.getElementById('leave-reason').value;
+            const res = await fetch('/api/student/leave_request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
+            });
+            const data = await res.json();
+            if (data.success) { closeLeaveModal(); checkLeaveStatus(); }
+        }
+
+        async function cancelLeave() {
+            if (!confirm("Cancel your leave request for today?")) return;
+            const res  = await fetch('/api/student/leave_cancel', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) checkLeaveStatus();
+        }
+
+        // ===================== EMERGENCY / SOS =====================
+        let mediaRecorder = null, audioChunks = [], recordingTimer = null, recordingSeconds = 0;
+        let voiceNoteB64 = null, voiceNoteType = 'audio/webm';
+
+        function openSOSModal()  { document.getElementById('sosModal').classList.add('show'); }
+        function closeSOSModal() {
+            document.getElementById('sosModal').classList.remove('show');
+            if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording();
+            resetRecorder();
+        }
+
+        function resetRecorder() {
+            voiceNoteB64 = null;
+            recordingSeconds = 0;
+            clearInterval(recordingTimer);
+            document.getElementById('recorder-timer').style.display = 'none';
+            document.getElementById('recorder-waveform').style.display = 'none';
+            document.getElementById('rec-start-btn').style.display = '';
+            document.getElementById('rec-stop-btn').classList.remove('show');
+            const preview = document.getElementById('audio-preview');
+            preview.style.display = 'none';
+            preview.src = '';
+        }
+
+        function startRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: voiceNoteType });
+                    const reader = new FileReader();
+                    reader.onload = () => { voiceNoteB64 = reader.result.split(',')[1]; };
+                    reader.readAsDataURL(blob);
+                    const url = URL.createObjectURL(blob);
+                    const preview = document.getElementById('audio-preview');
+                    preview.src = url;
+                    preview.style.display = 'block';
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.start();
+
+                document.getElementById('rec-start-btn').style.display = 'none';
+                document.getElementById('rec-stop-btn').classList.add('show');
+                document.getElementById('recorder-waveform').style.display = 'flex';
+                document.getElementById('recorder-timer').style.display = 'block';
+                recordingSeconds = 0;
+
+                recordingTimer = setInterval(() => {
+                    recordingSeconds++;
+                    const m = Math.floor(recordingSeconds / 60);
+                    const s = recordingSeconds % 60;
+                    document.getElementById('recorder-timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+                    if (recordingSeconds >= 60) stopRecording();
+                }, 1000);
+            })
+            .catch(() => {
+                document.getElementById('sos-error').textContent = '🎙️ Microphone access denied.';
+                document.getElementById('sos-error').style.display = 'block';
+            });
+        }
+
+        function stopRecording() {
+            clearInterval(recordingTimer);
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+            document.getElementById('recorder-waveform').style.display = 'none';
+            document.getElementById('rec-stop-btn').classList.remove('show');
+        }
+
+        async function submitSOS() {
+            const description = document.getElementById('sos-description').value.trim();
+            if (!description && !voiceNoteB64) {
+                document.getElementById('sos-error').textContent = 'Please describe the issue or record a voice note.';
+                document.getElementById('sos-error').style.display = 'block';
+                return;
+            }
+            document.getElementById('sos-error').style.display = 'none';
+            document.getElementById('sos-submit-btn').disabled = true;
+            document.getElementById('sos-submit-btn').textContent = 'Sending...';
+
+            const payload = {
+                problem_type: 'general',
+                description,
+                voice_note_b64: voiceNoteB64,
+                voice_note_type: voiceNoteType
+            };
+
+            try {
+                const res  = await fetch('/api/emergency/alert', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const data = await res.json();
+
+                if (data.success) {
+                    closeSOSModal();
+                    document.getElementById('sos-submit-btn').disabled = false;
+                    document.getElementById('sos-submit-btn').textContent = '🚨 Send Alert';
+                    document.getElementById('sos-description').value = '';
+                    resetRecorder();
+                    showMassToast('✅ Your emergency alert has been sent to admin!', '#059669');
+                    checkActiveEmergencies();
+                }
+            } catch(e) {
+                document.getElementById('sos-submit-btn').disabled = false;
+                document.getElementById('sos-submit-btn').textContent = '🚨 Send Alert';
+            }
+        }
+
+        async function checkActiveEmergencies() {
+            try {
+                const res  = await fetch('/api/emergency/list');
+                const data = await res.json();
+                const banner = document.getElementById('active-emergency-banner');
+                const bannerText = document.getElementById('emergency-banner-text');
+
+                if (data.success && data.alerts && data.alerts.length > 0) {
+                    const top = data.alerts[0];
+                    bannerText.textContent = `⚠️ Active Emergency on ${top.busnumber}: ${top.problem_type}`;
+                    banner.style.display = 'flex';
+
+                    // Check if mass alert (5+)
+                    if (data.alerts.some(a => a.upvote_count >= 5)) {
+                        showMassToast('🚨 MASS ALERT: 5+ students reporting emergency on your bus! Admin notified!');
+                    }
+                } else {
+                    banner.style.display = 'none';
+                }
+            } catch(e) {}
+        }
+
+        function showMassToast(msg, bg = '#dc2626') {
+            const toast = document.getElementById('mass-alert-toast');
+            document.getElementById('mass-alert-text').textContent = msg;
+            toast.style.background = `linear-gradient(135deg, ${bg}, ${bg}CC)`;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 6000);
         }
     </script>
 </body>

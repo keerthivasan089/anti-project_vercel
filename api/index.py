@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from api.models import (BusModel, StopModel, AdminModel, RegistrationModel, 
-                         AttenderModel, AttendanceModel, AdminAuthModel, get_student_by_auth)
-from api.utils import haversine, calculate_eta
+from api.models import (BusModel, StopModel, AdminModel, RegistrationModel,
+                         AttenderModel, AttendanceModel, AdminAuthModel, get_student_by_auth,
+                         LeaveModel, EmergencyModel, AnalyticsModel, NotificationModel, TripLogModel)
+from api.utils import haversine, calculate_eta, get_road_eta, meters_between
 import os
 
 app = Flask(__name__,
@@ -495,20 +496,20 @@ def get_eta():
             if assigned_bus_id and str(bus.get('id')) != str(assigned_bus_id):
                 continue
 
-            dist = haversine(
+            # Use road-based ETA via OSRM
+            eta_data = get_road_eta(
                 float(bus['latitude']),
                 float(bus['longitude']),
                 float(target_stop['latitude']),
                 float(target_stop['longitude'])
             )
 
-            eta_minutes = calculate_eta(dist)
-
             etas.append({
                 "busnumber": bus['busnumber'],
                 "bus_id": bus['id'],
-                "distancekm": round(dist, 2),
-                "etaminutes": eta_minutes
+                "distancekm": eta_data['distance_km'],
+                "etaminutes": eta_data['eta_minutes'],
+                "via_road": eta_data.get('via_road', False)
             })
 
         return jsonify({
@@ -520,6 +521,194 @@ def get_eta():
     except Exception as e:
         return jsonify({"error": str(e)})
 
-#------------------
+# -----------------------------
+# LEAVE REQUEST ROUTES
+# -----------------------------
+@app.route('/api/student/leave_request', methods=['POST'])
+def student_leave_request():
+    if 'student_id' not in session:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    try:
+        data = request.json or {}
+        student_id = session['student_id']
+        bus_id = session.get('assigned_bus_id')
+        reason = data.get('reason', '')
+        success = LeaveModel.request_leave(student_id, bus_id, reason)
+        return jsonify({"success": success})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/api/student/leave_cancel', methods=['POST'])
+def cancel_leave():
+    if 'student_id' not in session:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    success = LeaveModel.cancel_leave(session['student_id'])
+    return jsonify({"success": success})
+
+@app.route('/api/student/leave_status', methods=['GET'])
+def get_leave_status():
+    if 'student_id' not in session:
+        return jsonify({"success": False}), 401
+    leave = LeaveModel.get_today_leave(session['student_id'])
+    return jsonify({"success": True, "on_leave": leave is not None})
+
+@app.route('/api/attender/leaves_today', methods=['GET'])
+def get_attender_leaves():
+    if session.get('role') != 'attender' or not session.get('attender_id'):
+        return jsonify({"success": False}), 401
+    bus_id = session.get('attender_bus_id')
+    leaves = LeaveModel.get_bus_leaves_today(bus_id)
+    return jsonify({"success": True, "leaves": leaves})
+
+# -----------------------------
+# EMERGENCY ROUTES
+# -----------------------------
+@app.route('/api/emergency/alert', methods=['POST'])
+def post_emergency():
+    # Must be student or driver
+    role = session.get('role')
+    if role not in ('student', 'driver'):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    try:
+        data = request.json or {}
+        if role == 'student':
+            reporter_id = session['student_id']
+            reporter_name = session.get('student_name', 'Unknown Student')
+            bus_id = session.get('assigned_bus_id')
+        else:  # driver
+            reporter_id = session['bus_id']
+            reporter_name = 'Driver'
+            bus_id = session['bus_id']
+
+        alert_id = EmergencyModel.create_alert(
+            bus_id=bus_id,
+            reporter_type=role,
+            reporter_id=reporter_id,
+            reporter_name=reporter_name,
+            problem_type=data.get('problem_type', 'general'),
+            description=data.get('description', ''),
+            voice_note_b64=data.get('voice_note_b64'),
+            voice_note_type=data.get('voice_note_type', 'audio/webm')
+        )
+
+        if alert_id:
+            # If driver and problem is critical, mark bus inactive
+            if role == 'driver' and data.get('problem_type') in ('Breakdown', 'Accident', 'Medical Emergency'):
+                from api.models import BusModel as BM
+                conn = BM.get_all_buses  # just to reference — we do it directly
+                # Get and update via simple SQL
+                import psycopg2, psycopg2.extras
+                from api.models import get_db_connection
+                c = get_db_connection()
+                if c:
+                    cur = c.cursor()
+                    cur.execute("UPDATE buses SET isActive = FALSE WHERE id = %s", (bus_id,))
+                    c.commit(); cur.close(); c.close()
+
+            return jsonify({"success": True, "alert_id": alert_id})
+        return jsonify({"success": False, "message": "Failed to create alert"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/api/emergency/upvote/<int:alert_id>', methods=['POST'])
+def upvote_emergency(alert_id):
+    if 'student_id' not in session:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    count, is_mass = EmergencyModel.upvote(alert_id, session['student_id'])
+    return jsonify({"success": True, "count": count, "is_mass_alert": is_mass})
+
+@app.route('/api/emergency/list', methods=['GET'])
+def list_emergencies():
+    # Admin sees all; student/driver see bus-specific
+    if session.get('role') == 'admin' and session.get('is_admin'):
+        alerts = EmergencyModel.get_active_alerts()
+        mass_alerts = EmergencyModel.get_mass_alerts()
+        return jsonify({"success": True, "alerts": alerts, "mass_alerts": mass_alerts})
+    elif 'student_id' in session:
+        bus_id = session.get('assigned_bus_id')
+        alerts = EmergencyModel.get_active_alerts(bus_id)
+        return jsonify({"success": True, "alerts": alerts})
+    else:
+        return jsonify({"success": False}), 401
+
+@app.route('/api/emergency/voice/<int:alert_id>', methods=['GET'])
+def get_emergency_voice(alert_id):
+    if not (session.get('is_admin') or 'student_id' in session or session.get('role') == 'driver'):
+        return jsonify({"success": False}), 401
+    result = EmergencyModel.get_alert_voice(alert_id)
+    if result:
+        return jsonify({"success": True, "voice_note_b64": result['voice_note_b64'],
+                        "voice_note_type": result['voice_note_type']})
+    return jsonify({"success": False, "message": "No voice note"})
+
+@app.route('/api/emergency/resolve/<int:alert_id>', methods=['POST'])
+def resolve_emergency(alert_id):
+    if not (session.get('role') == 'admin' and session.get('is_admin')):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+    success = EmergencyModel.resolve(alert_id)
+    return jsonify({"success": success})
+
+# -----------------------------
+# ANALYTICS ROUTE
+# -----------------------------
+@app.route('/api/analytics/summary', methods=['GET'])
+def analytics_summary():
+    if not (session.get('role') == 'admin' and session.get('is_admin')):
+        return jsonify({"success": False}), 401
+    data = AnalyticsModel.get_daily_summary()
+    return jsonify({"success": True, **data})
+
+# -----------------------------
+# GEOFENCE ROUTE
+# -----------------------------
+@app.route('/api/geofence/check', methods=['POST'])
+def geofence_check():
+    if 'bus_id' not in session:
+        return jsonify({"success": False}), 401
+    try:
+        data = request.json or {}
+        lat = float(data.get('latitude', 0))
+        lng = float(data.get('longitude', 0))
+        bus_id = session['bus_id']
+
+        college_lat = float(os.environ.get('COLLEGE_LAT', 12.717849))
+        college_lng = float(os.environ.get('COLLEGE_LNG', 77.869604))
+        radius = float(os.environ.get('GEOFENCE_RADIUS_METERS', 500))
+
+        dist_m = meters_between(lat, lng, college_lat, college_lng)
+        arrived = dist_m <= radius
+
+        if arrived:
+            TripLogModel.complete_trip(bus_id)
+
+        return jsonify({"success": True, "arrived": arrived, "distance_m": round(dist_m)})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/api/trip/start', methods=['POST'])
+def start_trip():
+    if 'bus_id' not in session:
+        return jsonify({"success": False}), 401
+    success = TripLogModel.start_trip(session['bus_id'])
+    return jsonify({"success": success})
+
+# -----------------------------
+# NOTIFICATION ROUTE
+# -----------------------------
+@app.route('/api/notify/send', methods=['POST'])
+def notify_send():
+    # Internal: trigger SMS notification (admin or system)
+    if not (session.get('role') == 'admin' and session.get('is_admin')):
+        return jsonify({"success": False}), 401
+    data = request.json or {}
+    phone = data.get('phone')
+    message = data.get('message')
+    msg_type = data.get('type', 'general')
+    if not phone or not message:
+        return jsonify({"success": False, "message": "phone and message required"}), 400
+    sent = NotificationModel.send_sms(phone, message, msg_type)
+    return jsonify({"success": sent})
+
+# ------------------
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

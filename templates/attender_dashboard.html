@@ -398,6 +398,32 @@
             alertBox.style.display = 'block';
             setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
         }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch('/api/attender/leaves_today');
+                const data = await res.json();
+                if (data.success && data.leaves.length > 0) {
+                    data.leaves.forEach(l => {
+                        const row = document.querySelector(`.student-row[data-id="${l.student_id}"]`);
+                        if (row) {
+                            const infoDiv = row.querySelector('.student-info');
+                            const badge = document.createElement('span');
+                            badge.innerHTML = `<i class='bx bx-calendar-minus'></i> On Leave (${l.reason || 'Requested'})`;
+                            badge.style.cssText = "display:inline-block; margin-top:5px; background:#fef3c7; color:#92400e; padding:3px 8px; border-radius:12px; font-size:0.7rem; font-weight:700;";
+                            infoDiv.appendChild(badge);
+
+                            // Auto mark absent if not already set
+                            const absentBtn = row.querySelector('.absent');
+                            const presentBtn = row.querySelector('.present');
+                            if (!absentBtn.classList.contains('active') && !presentBtn.classList.contains('active')) {
+                                setStatus(absentBtn, l.student_id, 'absent');
+                            }
+                        }
+                    });
+                }
+            } catch(e) {}
+        });
     </script>
 </body>
 </html>
