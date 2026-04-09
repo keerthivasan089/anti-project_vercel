@@ -205,12 +205,33 @@
         <div class="footer-link">Wrong number? <a href="/driver">Restart Login</a></div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    
     <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDhPizOF7jUd1HThAng22D9ei3drwyXew",
+            authDomain: "campustransit-95e75.firebaseapp.com",
+            projectId: "campustransit-95e75",
+            storageBucket: "campustransit-95e75.firebasestorage.app",
+            messagingSenderId: "844590462013",
+            appId: "1:844590462013:web:44c3a4f51589139d872654"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        let confirmationResult = null;
+
         let earlyWatchId = null;
         let wakeLock = null;
         let earlyLocation = null;
 
-        async function requestWakeLock() {
+        auth.languageCode = 'en';
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+            'size': 'normal',
+            'callback': (response) => {
+                // reCAPTCHA solved
+            }
+        });
             try {
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
@@ -249,13 +270,27 @@
                 );
             }
 
-            // Simulate OTP network request
-            setTimeout(() => {
-                document.getElementById('login-section').classList.add('hidden');
-                document.getElementById('otp-section').classList.remove('hidden');
-                document.getElementById('send-otp-btn').innerText = "Send Secure OTP";
-                document.getElementById('send-otp-btn').disabled = false;
-            }, 800);
+            // Use Firebase to send OTP
+            const phoneNumber = "+91" + phoneInputRaw;
+            const appVerifier = window.recaptchaVerifier;
+
+            auth.signInWithPhoneNumber(phoneNumber, appVerifier)
+                .then((result) => {
+                    window.confirmationResult = result;
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('otp-section').classList.remove('hidden');
+                    document.getElementById('send-otp-btn').innerText = "Send Secure OTP";
+                    document.getElementById('send-otp-btn').disabled = false;
+                }).catch((error) => {
+                    console.error(error);
+                    errorDiv.innerText = "Failed to send OTP. Try again.";
+                    errorDiv.style.display = 'block';
+                    document.getElementById('send-otp-btn').innerText = "Send Secure OTP";
+                    document.getElementById('send-otp-btn').disabled = false;
+                    window.recaptchaVerifier.render().then(function(widgetId) {
+                        grecaptcha.reset(widgetId);
+                    });
+                });
         };
 
         window.verifyOTP = function() {
@@ -272,13 +307,21 @@
             document.getElementById('verify-otp-btn').innerText = "Verifying...";
             document.getElementById('verify-otp-btn').disabled = true;
 
-            const busId = document.getElementById('bus-number').value.trim();
-            const driverPhone = document.getElementById('phone-number').value.trim();
-            
-            fetch('/api/driver/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bus_id: busId, driver_phone: driverPhone })
+            window.confirmationResult.confirm(code).then((result) => {
+                return result.user.getIdToken();
+            }).then((idToken) => {
+                const busId = document.getElementById('bus-number').value.trim();
+                const driverPhone = document.getElementById('phone-number').value.trim();
+                
+                return fetch('/api/driver/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        bus_id: busId, 
+                        driver_phone: driverPhone,
+                        id_token: idToken
+                    })
+                });
             })
             .then(res => res.json())
             .then(data => {
@@ -298,7 +341,8 @@
                 }
             })
             .catch(err => {
-                errorDiv.innerText = err.message || "Server sync failed.";
+                console.error(err);
+                errorDiv.innerText = err.message || "Invalid OTP code.";
                 errorDiv.style.display = 'block';
                 document.getElementById('verify-otp-btn').innerText = "Confirm Identity";
                 document.getElementById('verify-otp-btn').disabled = false;

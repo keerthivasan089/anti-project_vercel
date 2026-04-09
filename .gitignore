@@ -19,3 +19,7 @@ init_db.py
 # OS
 .DS_Store
 Thumbs.db
+firebase-service-key.json
+package-lock.json
+package.json
+node_modules/

@@ -16,3 +16,4 @@ Werkzeug
 pycparser
 pytest
 pytest-cov
+firebase-admin

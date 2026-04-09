@@ -4,7 +4,20 @@ from api.models import (BusModel, StopModel, AdminModel, RegistrationModel,
                          LeaveModel, EmergencyModel, AnalyticsModel, NotificationModel, TripLogModel)
 from api.utils import haversine, calculate_eta, get_road_eta, meters_between
 import os
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth
 
+try:
+    if os.path.exists('firebase-service-key.json'):
+        cred = credentials.Certificate('firebase-service-key.json')
+        firebase_admin.initialize_app(cred)
+    elif os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON'):
+        import json
+        cred_dict = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON'))
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
+except Exception as e:
+    print("Firebase Admin initialization skipped or failed:", e)
 app = Flask(__name__,
             static_folder=os.path.join(os.path.dirname(__file__), '..', 'static'),
             template_folder=os.path.join(os.path.dirname(__file__), '..', 'templates'))
@@ -105,6 +118,17 @@ def driver_login():
         data = request.json
         busid = data.get('bus_id')
         driverphone = data.get('driver_phone')
+        id_token = data.get('id_token')
+
+        if id_token and firebase_admin._apps:
+            try:
+                decoded_token = firebase_auth.verify_id_token(id_token)
+                verified_phone = decoded_token.get('phone_number', '')
+                if driverphone[-10:] not in verified_phone:
+                    return jsonify({"success": False, "message": "Phone number mismatch"}), 401
+            except Exception as e:
+                print(f"Token verification error: {e}")
+                return jsonify({"success": False, "message": "Invalid authentication token"}), 401
 
         bus = BusModel.get_bus_by_auth(busid, driverphone)
 
