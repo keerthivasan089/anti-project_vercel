@@ -635,14 +635,19 @@
 
         let indexConfirmationResult = null;
 
-        window.onload = function() {
+        document.addEventListener('DOMContentLoaded', function() {
             window.indexRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('index-recaptcha-container', {
                 'size': 'normal',
                 'callback': (response) => {
-                    // reCAPTCHA solved
+                    // reCAPTCHA solved - enable the button
+                    document.getElementById('d-btn').disabled = false;
+                },
+                'expired-callback': () => {
+                    document.getElementById('d-error').textContent = 'reCAPTCHA expired. Please solve it again.';
                 }
             });
-        };
+            window.indexRecaptchaVerifier.render();
+        });
 
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -873,8 +878,12 @@
                     }
                 };
             } catch (err) {
-                console.error(err);
-                errEl.textContent = 'Failed to send OTP. Try again.';
+                console.error('Firebase OTP Error:', err);
+                // Show the EXACT Firebase error code on screen for debugging
+                const errorCode = err.code || 'unknown';
+                const errorMessage = err.message || 'Unknown error';
+                errEl.innerHTML = `<strong>Error [${errorCode}]:</strong> ${errorMessage}`;
+                errEl.style.color = 'red';
                 btn.disabled = false;
                 spinner.style.display = 'none';
                 if(window.indexRecaptchaVerifier) {
